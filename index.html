@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Ultimate Tycoon, jeu de gestion gratuit jouable dans le navigateur.">
+<title>Ultimate Tycoon</title>
+<style>
+html,body,#root{margin:0;min-height:100%;background:#10101d}
+body{font-family:Arial,sans-serif}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<!-- Bibliothèques chargées depuis leurs CDN officiels. Une connexion Internet est nécessaire. -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+/* Pour activer le classement mondial, renseigne ici les deux valeurs publiques Supabase.
+   Laisse vide pour jouer sans classement en ligne. Ne mets JAMAIS une clé service_role ici. */
+window.TYCOON_SUPABASE_URL = "";
+window.TYCOON_SUPABASE_ANON_KEY = "";
+</script>
+<script type="text/babel" data-presets="react">
+const { useEffect, useMemo, useState } = React;
+const SUPABASE_URL = window.TYCOON_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = window.TYCOON_SUPABASE_ANON_KEY || "";
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const BUILDINGS = [
+  { id: "lemonade", name: "Stand de limonade", cost: 10, income: 1, icon: "🍋" },
+  { id: "farm", name: "Ferme", cost: 100, income: 8, icon: "🌾" },
+  { id: "shop", name: "Boutique", cost: 1_000, income: 65, icon: "🏪" },
+  { id: "factory", name: "Usine", cost: 10_000, income: 500, icon: "🏭" },
+  { id: "bank", name: "Banque", cost: 100_000, income: 4_000, icon: "🏦" },
+  { id: "city", name: "Ville", cost: 1_000_000, income: 35_000, icon: "🏙️" },
+  { id: "rocket", name: "Base spatiale", cost: 10_000_000, income: 300_000, icon: "🚀" },
+  { id: "planet", name: "Planète minière", cost: 100_000_000, income: 2_500_000, icon: "🪐" }
+];
+const LOOT_TABLES = {
+  normal: {
+    name: "Lootbox normale", price: 10_000, currency: "money", icon: "📦",
+    chances: [
+      { rarity: "Commun", weight: 55, color: "#a1a1aa", income: 100 },
+      { rarity: "Rare", weight: 28, color: "#38bdf8", income: 1_000 },
+      { rarity: "Épique", weight: 12, color: "#a78bfa", income: 10_000 },
+      { rarity: "Légendaire", weight: 4, color: "#fbbf24", income: 100_000 },
+      { rarity: "Cosmique", weight: 1, color: "#f472b6", income: 1_000_000 }
+    ]
+  },
+  epic: {
+    name: "Lootbox épique", price: 10, currency: "prestige", icon: "💜",
+    chances: [
+      { rarity: "Rare", weight: 35, color: "#38bdf8", income: 5_000 },
+      { rarity: "Épique", weight: 40, color: "#a78bfa", income: 25_000 },
+      { rarity: "Légendaire", weight: 20, color: "#fbbf24", income: 250_000 },
+      { rarity: "Cosmique", weight: 5, color: "#f472b6", income: 2_500_000 }
+    ]
+  },
+  legendary: {
+    name: "Lootbox légendaire", price: 5, currency: "ascension", icon: "👑",
+    chances: [
+      { rarity: "Épique", weight: 30, color: "#a78bfa", income: 100_000 },
+      { rarity: "Légendaire", weight: 50, color: "#fbbf24", income: 1_000_000 },
+      { rarity: "Cosmique", weight: 20, color: "#f472b6", income: 10_000_000 }
+    ]
+  },
+  cosmic: {
+    name: "Lootbox cosmique", price: 3, currency: "transcension", icon: "🌌",
+    chances: [
+      { rarity: "Légendaire", weight: 40, color: "#fbbf24", income: 5_000_000 },
+      { rarity: "Cosmique", weight: 60, color: "#f472b6", income: 50_000_000 }
+    ]
+  }
+};
+const RANKS = [
+  { name: "Débutant", min: 0, reward: 0, icon: "🌱" },
+  { name: "Bronze", min: 1_000, reward: 2_500, icon: "🥉" },
+  { name: "Argent", min: 5_000, reward: 10_000, icon: "🥈" },
+  { name: "Or", min: 15_000, reward: 50_000, icon: "🥇" },
+  { name: "Diamant", min: 50_000, reward: 250_000, icon: "💎" },
+  { name: "Maître", min: 150_000, reward: 1_000_000, icon: "🔮" },
+  { name: "Grand Maître", min: 500_000, reward: 5_000_000, icon: "👑" },
+  { name: "Légende", min: 1_500_000, reward: 25_000_000, icon: "🌌" },
+  { name: "Divin", min: 5_000_000, reward: 100_000_000, icon: "⚡" },
+  { name: "Ultime", min: 15_000_000, reward: 1_000_000_000, icon: "🔥" }
+];
+const INITIAL_SAVE = {
+  money: 100, prestige: 0, ascension: 0, transcension: 0, overlock: 0,
+  owned: {}, exclusive: [], upgrades: 0, pity: 0, totalEarned: 0,
+  lastSeen: Date.now(), lootHistory: [], xp: 0, claimedRanks: [],
+  playerId: "", playerName: ""
+};
+function loadSave() {
+  try {
+    const raw = localStorage.getItem("ultimate-tycoon-save");
+    const parsed = raw ? JSON.parse(raw) : {};
+    return { ...INITIAL_SAVE, ...parsed, owned: parsed.owned || {}, exclusive: parsed.exclusive || [] };
+  } catch {
+    return { ...INITIAL_SAVE };
+  }
+}
+function format(value) {
+  if (!Number.isFinite(value)) return "∞";
+  if (Math.abs(value) < 1_000) return Math.floor(value).toLocaleString("fr-FR");
+  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No"];
+  let n = Math.abs(value);
+  let i = -1;
+  while (n >= 1_000 && i < units.length - 1) { n /= 1_000; i++; }
+  return `${value < 0 ? "-" : ""}${n.toFixed(2)}${units[i]}`;
+}
+function rankForXP(xp) {
+  let rank = RANKS[0];
+  for (const candidate of RANKS) if (xp >= candidate.min) rank = candidate;
+  return rank;
+}
+function nextRankForXP(xp) {
+  return RANKS.find((rank) => rank.min > xp) || null;
+}
+function makeId() {
+  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+function App() {
+  const [save, setSave] = useState(loadSave);
+  const [tab, setTab] = useState("business");
+  const [lootResult, setLootResult] = useState(null);
+  const [opening, setOpening] = useState(false);
+  const [message, setMessage] = useState("");
+  const [playerNameInput, setPlayerNameInput] = useState(() => loadSave().playerName || "");
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [adminCode, setAdminCode] = useState("");
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminTab, setAdminTab] = useState("resources");
+  const [adminAmount, setAdminAmount] = useState("1000000");
+  const [adminBuilding, setAdminBuilding] = useState("lemonade");
+  const [adminRarity, setAdminRarity] = useState("Cosmique");
+  const [adminMultiplier, setAdminMultiplier] = useState("100");
+  const multiplier =
+    (1 + save.prestige * 0.25) *
+    (1 + save.ascension * 2) *
+    (1 + save.transcension * 10) *
+    (1 + save.overlock * 50) *
+    (1 + save.upgrades * 0.5);
+  const exclusiveIncome = save.exclusive.reduce((sum, building) => sum + (Number(building.income) || 0), 0);
+  const income = useMemo(() => {
+    const normal = BUILDINGS.reduce((sum, building) => sum + (save.owned[building.id] || 0) * building.income, 0);
+    return (normal + exclusiveIncome) * multiplier;
+  }, [save.owned, exclusiveIncome, multiplier]);
+  const currentRank = rankForXP(save.xp);
+  const nextRank = nextRankForXP(save.xp);
+  const previousThreshold = currentRank.min;
+  const progressPercent = nextRank
+    ? Math.max(0, Math.min(100, ((save.xp - previousThreshold) / (nextRank.min - previousThreshold)) * 100))
+    : 100;
+  useEffect(() => {
+    const now = Date.now();
+    const elapsed = Math.max(0, Math.min(86_400, (now - (save.lastSeen || now)) / 1000));
+    if (elapsed > 1 && income > 0) {
+      const reward = income * elapsed;
+      setSave((s) => ({
+        ...s, money: s.money + reward, totalEarned: s.totalEarned + reward,
+        xp: s.xp + Math.floor(reward / 100), lastSeen: now
+      }));
+      setMessage(`Bienvenue ! Tu as gagné ${format(reward)} hors ligne.`);
+    }
+  }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSave((s) => ({
+        ...s,
+        money: s.money + income,
+        totalEarned: s.totalEarned + income,
+        xp: s.xp + Math.floor(income / 100),
+        lastSeen: Date.now()
+      }));
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [income]);
+  useEffect(() => {
+    localStorage.setItem("ultimate-tycoon-save", JSON.stringify(save));
+  }, [save]);
+  useEffect(() => {
+    const newlyReached = RANKS.filter((rank) =>
+      rank.min > 0 && save.xp >= rank.min && !save.claimedRanks.includes(rank.name)
+    );
+    if (!newlyReached.length) return;
+    const reward = newlyReached.reduce((sum, rank) => sum + rank.reward, 0);
+    setSave((s) => ({
+      ...s,
+      money: s.money + reward,
+      claimedRanks: [...s.claimedRanks, ...newlyReached.map((rank) => rank.name)]
+    }));
+    setMessage(`Nouveau rang atteint ! Récompense : ${format(reward)} 💰`);
+  }, [save.xp]);
+  function addXP(amount) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setSave((s) => ({ ...s, xp: s.xp + Math.floor(amount) }));
+  }
+  function buyBuilding(building) {
+    if (save.money < building.cost) return;
+    setSave((s) => ({
+      ...s, money: s.money - building.cost,
+      owned: { ...s.owned, [building.id]: (s.owned[building.id] || 0) + 1 },
+      xp: s.xp + Math.max(5, Math.floor(building.cost / 100))
+    }));
+  }
+  function buyUpgrade() {
+    const price = Math.floor(5_000 * Math.pow(4, save.upgrades));
+    if (save.money < price) return;
+    setSave((s) => ({ ...s, money: s.money - price, upgrades: s.upgrades + 1, xp: s.xp + 100 }));
+  }
+  function openLootbox(type) {
+    if (opening) return;
+    const box = LOOT_TABLES[type];
+    if (!box || save[box.currency] < box.price) {
+      setMessage("Tu n'as pas assez de ressources pour cette lootbox.");
+      return;
+    }
+    setOpening(true);
+    setLootResult(null);
+    window.setTimeout(() => {
+      setSave((s) => {
+        let rarity;
+        if (s.pity >= 9 && box.chances.some((item) => item.rarity === "Légendaire" || item.rarity === "Cosmique")) {
+          rarity = box.chances.some((item) => item.rarity === "Cosmique") ? "Cosmique" : "Légendaire";
+        } else {
+          const roll = Math.random() * 100;
+          let cumulative = 0;
+          rarity = box.chances[0].rarity;
+          for (const item of box.chances) {
+            cumulative += item.weight;
+            if (roll < cumulative) { rarity = item.rarity; break; }
+          }
+        }
+        const reward = box.chances.find((item) => item.rarity === rarity) || box.chances[0];
+        const names = ["Tour infinie", "Réacteur quantique", "Palais céleste", "Mine dimensionnelle", "Noyau galactique"];
+        const building = {
+          id: makeId(),
+          name: `${rarity} ${names[Math.floor(Math.random() * names.length)]}`,
+          rarity, income: reward.income, color: reward.color
+        };
+        setLootResult(building);
+        return {
+          ...s,
+          [box.currency]: s[box.currency] - box.price,
+          exclusive: [...s.exclusive, building],
+          pity: rarity === "Légendaire" || rarity === "Cosmique" ? 0 : s.pity + 1,
+          lootHistory: [building, ...s.lootHistory].slice(0, 30),
+          xp: s.xp + 250
+        };
+      });
+      setOpening(false);
+    }, 1_200);
+  }
+  function doPrestige() {
+    if (save.money < 1_000_000) return;
+    setSave((s) => ({ ...s, money: 100, owned: {}, prestige: s.prestige + 1, xp: s.xp + 2_000 }));
+    setMessage("Prestige effectué ! +2 000 XP.");
+  }
+  function doAscension() {
+    if (save.prestige < 10) return;
+    setSave((s) => ({ ...s, money: 100, owned: {}, prestige: 0, ascension: s.ascension + 1, xp: s.xp + 10_000 }));
+    setMessage("Ascension effectuée ! +10 000 XP.");
+  }
+  function doTranscension() {
+    if (save.ascension < 5) return;
+    setSave((s) => ({ ...s, money: 100, owned: {}, prestige: 0, ascension: 0, transcension: s.transcension + 1, xp: s.xp + 50_000 }));
+    setMessage("Transcendance effectuée ! +50 000 XP.");
+  }
+  function doOverlock() {
+    if (save.transcension < 3) return;
+    setSave((s) => ({ ...s, money: 100, owned: {}, prestige: 0, ascension: 0, transcension: 0, overlock: s.overlock + 1, xp: s.xp + 100_000 }));
+    setMessage("Overlock activé ! +100 000 XP.");
+  }
+  function adminLogin() {
+    if (adminCode === "tim" || adminCode === "logan") {
+      setAdminUnlocked(true);
+      setMessage("Accès admin local activé.");
+    } else setMessage("Code administrateur incorrect.");
+    setAdminCode("");
+  }
+  function adminSet(field, value) {
+    const amount = Math.max(0, Number(value) || 0);
+    setSave((s) => ({ ...s, [field]: amount }));
+  }
+  function adminGiveBuilding() {
+    const building = BUILDINGS.find((item) => item.id === adminBuilding);
+    if (!building) return;
+    const count = Math.max(1, Math.floor(Number(adminAmount) || 1));
+    setSave((s) => ({ ...s, owned: { ...s.owned, [building.id]: (s.owned[building.id] || 0) + count } }));
+  }
+  function adminGiveExclusive() {
+    const rarities = {
+      Commun: { color: "#a1a1aa", income: 1_000 },
+      Rare: { color: "#38bdf8", income: 10_000 },
+      Épique: { color: "#a78bfa", income: 100_000 },
+      Légendaire: { color: "#fbbf24", income: 1_000_000 },
+      Cosmique: { color: "#f472b6", income: 10_000_000 }
+    };
+    const data = rarities[adminRarity];
+    const building = { id: makeId(), name: `Bâtiment Admin ${adminRarity}`, rarity: adminRarity, ...data };
+    setSave((s) => ({ ...s, exclusive: [...s.exclusive, building] }));
+  }
+  function adminMaxEverything() {
+    setSave((s) => ({
+      ...s, money: 1e100, prestige: 1_000, ascension: 100, transcension: 50,
+      overlock: 25, upgrades: 100, xp: Math.max(s.xp, 15_000_000),
+      owned: Object.fromEntries(BUILDINGS.map((b) => [b.id, 1_000]))
+    }));
+  }
+  async function savePlayerProfile() {
+    const name = playerNameInput.trim().slice(0, 20);
+    if (!name) { setMessage("Choisis un pseudo avant de publier ton score."); return; }
+    const playerId = save.playerId || makeId();
+    setSave((s) => ({ ...s, playerId, playerName: name }));
+    if (!supabase) {
+      setMessage("Supabase n'est pas configuré. Ajoute les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.");
+      return;
+    }
+    setLeaderboardLoading(true);
+    setLeaderboardError("");
+    const { error } = await supabase.from("tycoon_leaderboard").upsert({
+      player_id: playerId, player_name: name, xp: Math.floor(save.xp),
+      total_earned: Math.floor(save.totalEarned), prestige: save.prestige,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "player_id" });
+    setLeaderboardLoading(false);
+    if (error) {
+      setLeaderboardError(error.message);
+      setMessage("Impossible d'envoyer le score. Vérifie la table et les règles Supabase.");
+    } else {
+      setMessage("Score publié sur le leaderboard mondial !");
+      fetchLeaderboard();
+    }
+  }
+  async function fetchLeaderboard() {
+    if (!supabase) {
+      setLeaderboardError("Supabase n'est pas configuré.");
+      return;
+    }
+    setLeaderboardLoading(true);
+    setLeaderboardError("");
+    const { data, error } = await supabase
+      .from("tycoon_leaderboard")
+      .select("player_id, player_name, xp, total_earned, prestige, updated_at")
+      .order("xp", { ascending: false })
+      .limit(100);
+    setLeaderboardLoading(false);
+    if (error) setLeaderboardError(error.message);
+    else setLeaderboard(data || []);
+  }
+  useEffect(() => {
+    if (tab === "leaderboard") fetchLeaderboard();
+  }, [tab]);
+  useEffect(() => {
+    if (!supabase) return undefined;
+    const channel = supabase.channel("tycoon-leaderboard-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tycoon_leaderboard" }, () => fetchLeaderboard())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+  function resetGame() {
+    if (!window.confirm("Effacer toute ta sauvegarde locale ?")) return;
+    localStorage.removeItem("ultimate-tycoon-save");
+    setSave({ ...INITIAL_SAVE, lastSeen: Date.now() });
+    setLootResult(null);
+    setMessage("Nouvelle partie créée.");
+  }
+  const buttonStyle = (active = false) => ({
+    background: active ? "#7c3aed" : "#25253a", color: "white",
+    border: "1px solid #41415c", padding: "10px 14px", borderRadius: 10,
+    cursor: "pointer", fontWeight: 700
+  });
+  const panelStyle = {
+    background: "#1b1b2e", border: "1px solid #34344e",
+    borderRadius: 15, padding: 16
+  };
+  const inputStyle = {
+    padding: 11, borderRadius: 8, border: "1px solid #555",
+    background: "#10101d", color: "white", maxWidth: "100%"
+  };
+  return (
+    <div style={{ minHeight: "100vh", background: "#10101d", color: "#f4f4f5", fontFamily: "Arial,sans-serif", padding: 18 }}>
+      <div style={{ maxWidth: 1100, margin: "auto" }}>
+        <header style={{ textAlign: "center", marginBottom: 22 }}>
+          <h1 style={{ fontSize: 34, margin: 5 }}>🏙️ ULTIMATE TYCOON</h1>
+          <p style={{ color: "#aaa" }}>Construis ton empire, progresse et entre dans le classement mondial.</p>
+        </header>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginBottom: 18 }}>
+          {[
+            ["💰 Argent", format(save.money)], ["⚡ Revenu / sec", format(income)],
+            ["⭐ Prestige", save.prestige], ["👑 Ascension", save.ascension],
+            ["🌌 Transcendance", save.transcension], ["🔥 Overlock", save.overlock],
+            ["✨ XP", format(save.xp)], [`${currentRank.icon} Rang`, currentRank.name]
+          ].map(([label, value]) => (
+            <div key={label} style={panelStyle}>
+              <div style={{ color: "#aaa", fontSize: 12 }}>{label}</div>
+              <strong style={{ fontSize: 21 }}>{value}</strong>
+            </div>
+          ))}
+        </div>
+        {message && <div style={{ ...panelStyle, marginBottom: 15, borderColor: "#8b5cf6", color: "#c4b5fd" }}>
+          {message}
+          <button onClick={() => setMessage("")} style={{ float: "right", background: "none", color: "white", border: 0, cursor: "pointer" }}>✕</button>
+        </div>}
+        <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+          {[
+            ["business", "🏢 Bâtiments"], ["loot", "📦 Lootboxes"], ["upgrades", "⚙️ Améliorations"],
+            ["progress", "🚀 Progression"], ["collection", "🎒 Collection"],
+            ["leaderboard", "🏆 Leaderboard"], ["admin", "🔐 Admin"]
+          ].map(([id, label]) => <button key={id} style={buttonStyle(tab === id)} onClick={() => setTab(id)}>{label}</button>)}
+        </nav>
+        {tab === "business" && <section>
+          <h2>🏢 Tes bâtiments</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+            {BUILDINGS.map((b) => {
+              const count = save.owned[b.id] || 0;
+              const price = Math.floor(b.cost * Math.pow(1.15, count));
+              return <div key={b.id} style={panelStyle}>
+                <div style={{ fontSize: 32 }}>{b.icon}</div><h3>{b.name}</h3>
+                <p style={{ color: "#aaa" }}>Possédés : {count}</p>
+                <p>Revenu : {format(b.income * multiplier)} / sec</p>
+                <p>Prix : {format(price)}</p>
+                <button style={buttonStyle()} disabled={save.money < price} onClick={() => buyBuilding({ ...b, cost: price })}>Acheter</button>
+              </div>;
+            })}
+          </div>
+        </section>}
+        {tab === "loot" && <section>
+          <h2>📦 Centre de lootboxes</h2>
+          <p style={{ color: "#aaa" }}>Garantie de rareté élevée après 10 tirages sans légendaire ou cosmique, pour les boîtes qui peuvent en contenir.</p>
+          <div style={{ ...panelStyle, marginBottom: 15 }}>Garantie : {save.pity}/10
+            <div style={{ height: 10, background: "#33334a", borderRadius: 10, overflow: "hidden", marginTop: 8 }}>
+              <div style={{ height: "100%", width: `${Math.min(100, save.pity * 10)}%`, background: "#a78bfa" }} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 12 }}>
+            {Object.entries(LOOT_TABLES).map(([id, box]) => <div key={id} style={panelStyle}>
+              <div style={{ fontSize: 38 }}>{box.icon}</div><h3>{box.name}</h3>
+              <p>Prix : {box.price} {box.currency}</p>
+              <button style={buttonStyle()} disabled={opening || save[box.currency] < box.price} onClick={() => openLootbox(id)}>{opening ? "Ouverture..." : "Ouvrir"}</button>
+            </div>)}
+          </div>
+          {opening && <div style={{ ...panelStyle, textAlign: "center", marginTop: 18 }}><div style={{ fontSize: 60 }}>🎁</div><h2>Ouverture...</h2></div>}
+          {lootResult && !opening && <div style={{ ...panelStyle, textAlign: "center", marginTop: 18, borderColor: lootResult.color }}>
+            <div style={{ fontSize: 55 }}>✨</div><h2 style={{ color: lootResult.color }}>Nouveau bâtiment !</h2>
+            <h3>{lootResult.name}</h3><p style={{ color: lootResult.color }}>{lootResult.rarity}</p>
+            <p>+{format(lootResult.income)} revenus / sec</p>
+          </div>}
+        </section>}
+        {tab === "upgrades" && <section>
+          <h2>⚙️ Améliorations</h2><div style={panelStyle}>
+            <h3>Multiplicateur de revenus</h3><p>Niveau : {save.upgrades}</p>
+            <p>Bonus : x{(1 + save.upgrades * 0.5).toFixed(2)}</p>
+            <p>Prix : {format(5_000 * Math.pow(4, save.upgrades))}</p>
+            <button style={buttonStyle()} onClick={buyUpgrade} disabled={save.money < 5_000 * Math.pow(4, save.upgrades)}>Acheter (+50 %)</button>
+          </div>
+        </section>}
+        {tab === "progress" && <section>
+          <h2>🚀 Progression et rangs</h2>
+          <div style={{ ...panelStyle, marginBottom: 14 }}>
+            <h3>{currentRank.icon} {currentRank.name}</h3>
+            <p>{format(save.xp)} XP {nextRank ? `/ ${format(nextRank.min)} XP` : "— rang maximum atteint"}</p>
+            <div style={{ height: 13, background: "#33334a", borderRadius: 20, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${progressPercent}%`, background: "linear-gradient(90deg,#7c3aed,#22d3ee)" }} />
+            </div>
+            {nextRank && <p style={{ color: "#aaa" }}>Encore {format(nextRank.min - save.xp)} XP avant {nextRank.name}.</p>}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+            {[
+              ["⭐ Prestige", "1 000 000 argent", save.money >= 1e6, doPrestige],
+              ["👑 Ascension", "10 prestiges", save.prestige >= 10, doAscension],
+              ["🌌 Transcendance", "5 ascensions", save.ascension >= 5, doTranscension],
+              ["🔥 Overlock", "3 transcendance", save.transcension >= 3, doOverlock]
+            ].map(([name, requirement, available, action]) => <div key={name} style={panelStyle}>
+              <h3>{name}</h3><p>Condition : {requirement}</p>
+              <button style={buttonStyle()} disabled={!available} onClick={action}>Débloquer</button>
+            </div>)}
+          </div>
+          <h3>🏅 Récompenses de rang</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
+            {RANKS.map((rank) => <div key={rank.name} style={{ ...panelStyle, borderColor: save.xp >= rank.min ? "#7c3aed" : "#34344e" }}>
+              <strong>{rank.icon} {rank.name}</strong><p>{format(rank.min)} XP</p>
+              <small style={{ color: "#aaa" }}>Récompense : {format(rank.reward)} argent</small>
+              <p style={{ color: save.claimedRanks.includes(rank.name) ? "#86efac" : "#aaa" }}>{rank.min === 0 ? "Rang de départ" : save.claimedRanks.includes(rank.name) ? "Réclamée automatiquement" : "À débloquer"}</p>
+            </div>)}
+          </div>
+          <div style={{ ...panelStyle, marginTop: 14 }}><h3>Multiplicateur global</h3><div style={{ fontSize: 30, color: "#c4b5fd" }}>x{format(multiplier)}</div></div>
+        </section>}
+        {tab === "collection" && <section>
+          <h2>🎒 Collection de bâtiments exclusifs</h2><p>Total : {save.exclusive.length} bâtiments</p>
+          {save.exclusive.length === 0 ? <div style={panelStyle}>Aucun bâtiment pour le moment. Ouvre une lootbox !</div> :
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+              {save.exclusive.map((b) => <div key={b.id} style={{ ...panelStyle, borderColor: b.color }}>
+                <h3 style={{ color: b.color }}>{b.name}</h3><p>{b.rarity}</p><p>+{format(b.income)} / sec</p>
+              </div>)}
+            </div>}
+          <h3>📜 Historique des gains</h3>
+          {save.lootHistory.slice(0, 10).map((b) => <div key={b.id} style={{ ...panelStyle, marginBottom: 7 }}><span style={{ color: b.color }}>{b.rarity}</span> — {b.name}</div>)}
+        </section>}
+        {tab === "leaderboard" && <section>
+          <h2>🏆 Leaderboard mondial</h2>
+          <div style={{ ...panelStyle, marginBottom: 14 }}>
+            <p>Ton rang : <strong>{currentRank.icon} {currentRank.name}</strong> — {format(save.xp)} XP</p>
+            <label htmlFor="player-name">Pseudo public (20 caractères maximum)</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              <input id="player-name" style={inputStyle} value={playerNameInput} maxLength={20} onChange={(e) => setPlayerNameInput(e.target.value)} placeholder="Ton pseudo" />
+              <button style={buttonStyle()} onClick={savePlayerProfile} disabled={leaderboardLoading}>{leaderboardLoading ? "Envoi..." : "Publier mon score"}</button>
+              <button style={buttonStyle()} onClick={fetchLeaderboard} disabled={leaderboardLoading}>Actualiser</button>
+            </div>
+            {!supabase && <p style={{ color: "#fbbf24" }}>Supabase non configuré : ajoute VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans les variables d'environnement.</p>}
+            {leaderboardError && <p style={{ color: "#fca5a5" }}>{leaderboardError}</p>}
+          </div>
+          <div style={panelStyle}>
+            <h3>🌍 Top 100 joueurs</h3>
+            {leaderboardLoading && <p>Chargement du classement...</p>}
+            {!leaderboardLoading && leaderboard.length === 0 && <p style={{ color: "#aaa" }}>Aucun score disponible pour le moment.</p>}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+                <thead><tr style={{ color: "#aaa", textAlign: "left" }}>
+                  <th style={{ padding: 9 }}>#</th><th style={{ padding: 9 }}>Joueur</th><th style={{ padding: 9 }}>XP</th><th style={{ padding: 9 }}>Prestige</th><th style={{ padding: 9 }}>Total gagné</th>
+                </tr></thead>
+                <tbody>{leaderboard.map((player, index) => <tr key={player.player_id} style={{ borderTop: "1px solid #34344e" }}>
+                  <td style={{ padding: 9 }}>{index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}</td>
+                  <td style={{ padding: 9 }}>{player.player_name}</td>
+                  <td style={{ padding: 9 }}>{format(player.xp)}</td>
+                  <td style={{ padding: 9 }}>{player.prestige}</td>
+                  <td style={{ padding: 9 }}>{format(player.total_earned)}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+          </div>
+          <p style={{ color: "#aaa", fontSize: 12 }}>Le classement est partagé via Supabase. Dans cette version client, les scores publiés ne sont pas protégés contre la triche : une validation serveur est nécessaire pour un classement compétitif fiable.</p>
+        </section>}
+        {tab === "admin" && <section>
+          <h2>🔐 Admin Control Panel</h2>
+          {!adminUnlocked ? <div style={panelStyle}>
+            <h3>Connexion administrateur</h3>
+            <input style={inputStyle} type="password" value={adminCode} onChange={(e) => setAdminCode(e.target.value)} placeholder="Code admin" />
+            <button style={buttonStyle()} onClick={adminLogin}>Se connecter</button>
+            <p style={{ color: "#aaa", fontSize: 12 }}>Codes de démonstration locaux : tim / logan. Ils ne sécurisent pas un vrai jeu public.</p>
+          </div> : <>
+            <div style={{ ...panelStyle, borderColor: "#ef4444", marginBottom: 14 }}>
+              <strong style={{ color: "#f87171" }}>🔴 ADMIN LOCAL CONNECTÉ</strong>
+              <button style={{ ...buttonStyle(), marginLeft: 12 }} onClick={() => setAdminUnlocked(false)}>Déconnexion</button>
+            </div>
+            <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+              {[
+                ["resources", "💰 Ressources"], ["levels", "⭐ Niveaux"], ["buildings", "🏢 Bâtiments"],
+                ["loot", "📦 Loot"], ["powers", "⚡ Pouvoirs"], ["danger", "🗑️ Réinitialiser"]
+              ].map(([id, label]) => <button key={id} style={buttonStyle(adminTab === id)} onClick={() => setAdminTab(id)}>{label}</button>)}
+            </nav>
+            <div style={panelStyle}>
+              {adminTab === "resources" && <>
+                <h3>Gestion de l'argent</h3><input style={inputStyle} type="number" value={adminAmount} onChange={(e) => setAdminAmount(e.target.value)} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button style={buttonStyle()} onClick={() => setSave((s) => ({ ...s, money: s.money + Math.max(0, Number(adminAmount) || 0) }))}>Ajouter</button>
+                  <button style={buttonStyle()} onClick={() => setSave((s) => ({ ...s, money: Math.max(0, s.money - Math.max(0, Number(adminAmount) || 0)) }))}>Retirer</button>
+                </div><p>Solde : {format(save.money)}</p>
+              </>}
+              {adminTab === "levels" && <>
+                <h3>Définir les niveaux</h3><input style={inputStyle} type="number" value={adminAmount} onChange={(e) => setAdminAmount(e.target.value)} />
+                {["prestige", "ascension", "transcension", "overlock", "upgrades", "xp"].map((field) => <p key={field}>{field} : {format(save[field] || 0)} <button style={buttonStyle()} onClick={() => adminSet(field, adminAmount)}>Définir</button></p>)}
+              </>}
+              {adminTab === "buildings" && <>
+                <h3>Ajouter des bâtiments classiques</h3>
+                <select style={inputStyle} value={adminBuilding} onChange={(e) => setAdminBuilding(e.target.value)}>{BUILDINGS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+                <input style={{ ...inputStyle, marginLeft: 8 }} type="number" value={adminAmount} onChange={(e) => setAdminAmount(e.target.value)} />
+                <button style={buttonStyle()} onClick={adminGiveBuilding}>Ajouter</button>
+                {BUILDINGS.map((b) => <p key={b.id}>{b.icon} {b.name} : {save.owned[b.id] || 0}</p>)}
+              </>}
+              {adminTab === "loot" && <>
+                <h3>Générer un bâtiment exclusif</h3>
+                <select style={inputStyle} value={adminRarity} onChange={(e) => setAdminRarity(e.target.value)}>{["Commun", "Rare", "Épique", "Légendaire", "Cosmique"].map((r) => <option key={r}>{r}</option>)}</select>
+                <button style={buttonStyle()} onClick={adminGiveExclusive}>Générer</button>
+                <p>Exclusifs possédés : {save.exclusive.length}</p>
+              </>}
+              {adminTab === "powers" && <>
+                <h3>Pouvoirs spéciaux</h3><button style={buttonStyle()} onClick={adminMaxEverything}>DÉBLOQUER TOUT</button>
+                <p>Multiplicateur actuel : x{format(multiplier)}</p>
+                <input style={inputStyle} type="number" value={adminMultiplier} onChange={(e) => setAdminMultiplier(e.target.value)} />
+                <button style={buttonStyle()} onClick={() => setSave((s) => ({ ...s, upgrades: Math.max(0, Math.ceil(((Number(adminMultiplier) || 1) - 1) / 0.5)) }))}>Appliquer multiplicateur approximatif</button>
+              </>}
+              {adminTab === "danger" && <>
+                <h3>Zone dangereuse</h3><button style={buttonStyle()} onClick={() => setSave((s) => ({ ...s, money: 100, prestige: 0, ascension: 0, transcension: 0, overlock: 0, upgrades: 0, owned: {} }))}>Réinitialiser progression (garde collection et XP)</button>
+                <p><button style={{ ...buttonStyle(), background: "#991b1b" }} onClick={resetGame}>Effacer sauvegarde locale complète</button></p>
+              </>}
+            </div>
+          </>}
+        </section>}
+        <footer style={{ textAlign: "center", color: "#777", marginTop: 35 }}>
+          <p>ULTIMATE TYCOON — Sauvegarde locale automatique</p>
+          <p>Total gagné : {format(save.totalEarned)} · XP : {format(save.xp)}</p>
+        </footer>
+      </div>
+      <style>{`
+        * { box-sizing: border-box; }
+        button:disabled { opacity: .4; cursor: not-allowed !important; }
+        button:not(:disabled):hover { filter: brightness(1.2); }
+        input, select { max-width: 100%; }
+      `}</style>
+    </div>
+  );
+}
+/*
+========================================================================
+CONFIGURATION SUPABASE — À EXÉCUTER UNE SEULE FOIS
+========================================================================
+Ce SQL est inclus ici pour garder un seul fichier à transmettre.
+Copie uniquement le contenu entre les marqueurs SQL dans Supabase > SQL Editor.
+<SQL_SETUP>
+create table if not exists public.tycoon_leaderboard (
+player_id text primary key,
+player_name text not null check (char_length(player_name) between 1 and 20),
+xp bigint not null default 0 check (xp >= 0),
+total_earned numeric not null default 0 check (total_earned >= 0),
+prestige integer not null default 0 check (prestige >= 0),
+updated_at timestamptz not null default now()
+);
+alter table public.tycoon_leaderboard enable row level security;
+drop policy if exists "Leaderboard is readable by everyone" on public.tycoon_leaderboard;
+create policy "Leaderboard is readable by everyone"
+on public.tycoon_leaderboard for select
+to anon, authenticated
+using (true);
+drop policy if exists "Players can publish leaderboard rows" on public.tycoon_leaderboard;
+create policy "Players can publish leaderboard rows"
+on public.tycoon_leaderboard for insert
+to anon, authenticated
+with check (
+char_length(player_name) between 1 and 20
+and xp >= 0
+and total_earned >= 0
+and prestige >= 0
+);
+drop policy if exists "Players can update leaderboard rows" on public.tycoon_leaderboard;
+create policy "Players can update leaderboard rows"
+on public.tycoon_leaderboard for update
+to anon, authenticated
+using (true)
+with check (
+char_length(player_name) between 1 and 20
+and xp >= 0
+and total_earned >= 0
+and prestige >= 0
+);
+do $$
+begin
+alter publication supabase_realtime add table public.tycoon_leaderboard;
+exception
+when duplicate_object then null;
+when undefined_object then null;
+end $$;
+</SQL_SETUP>
+*/
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
