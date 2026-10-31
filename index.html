@@ -44,6 +44,7 @@ h2{margin:0;font-size:23px}
 .notice{background:#292344;border:1px solid #59448b;border-radius:12px;padding:12px;margin:12px 0;color:#e9ddff}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#292344;border:1px solid #8b5cf6;border-radius:12px;padding:12px 18px;box-shadow:0 8px 30px #0008;z-index:10;display:none;max-width:90%;text-align:center}
 footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
+#adminPanel input{max-width:100%}
 @media(max-width:680px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.loot-grid{grid-template-columns:1fr}.building{align-items:flex-start}.buy{padding:9px 11px}.wrap{padding:12px 11px 35px}}
 </style>
 </head>
@@ -119,7 +120,27 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <div class="grid" id="collectionList"></div>
 </section>
 </main>
-<footer>ULTIMATE TYCOON · Sauvegarde automatique sur cet appareil</footer>
+<footer>ULTIMATE TYCOON · Sauvegarde automatique sur cet appareil<br><button class="secondary" id="adminOpen" style="margin-top:12px">🛠️ Panel admin</button></footer>
+<div id="adminPanel" class="panel" style="display:none;margin-top:18px">
+  <div class="section-title"><h2>🛠️ Panel administrateur</h2><button class="secondary" id="adminClose">Fermer</button></div>
+  <p class="muted">Outils de test et de gestion de ta partie.</p>
+  <div class="grid">
+    <label>Ajouter de l'argent<br><input id="adminMoney" type="number" min="0" value="1000000" style="width:100%;margin:8px 0;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"></label>
+    <label>Ajouter des XP<br><input id="adminXP" type="number" min="0" value="10000" style="width:100%;margin:8px 0;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"></label>
+    <label>Ajouter des prestiges<br><input id="adminPrestige" type="number" min="0" value="1" style="width:100%;margin:8px 0;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"></label>
+    <label>Multiplicateur supplémentaire<br><input id="adminMultiplier" type="number" min="1" value="2" style="width:100%;margin:8px 0;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"></label>
+  </div>
+  <div class="actions">
+    <button id="adminAddMoney">Ajouter l'argent</button>
+    <button id="adminAddXP">Ajouter les XP</button>
+    <button id="adminAddPrestige">Ajouter les prestiges</button>
+    <button id="adminBoost">Appliquer le multiplicateur</button>
+    <button class="green" id="adminUnlock">Débloquer tous les bâtiments</button>
+    <button class="gold" id="adminGift">Offrir un objet cosmique</button>
+    <button class="danger" id="adminReset">Réinitialiser la partie</button>
+  </div>
+  <p class="muted" style="font-size:12px;margin-top:14px">Attention : ce panel est local au navigateur. Son code d'accès est visible dans le code du site ; ce n'est pas une sécurité contre les visiteurs.</p>
+</div>
 </div>
 <div id="toast" role="status"></div>
 <script>
@@ -195,6 +216,21 @@ function openBox(id){const b=BOXES.find(x=>x.id===id);if(!b||save[b.currency]<b.
 document.getElementById("doPrestige").addEventListener("click",function(){if(save.money<1000000)return;if(!confirm("Faire un prestige ? Ton argent et tes bâtiments classiques seront réinitialisés."))return;save.money=100;save.owned={};save.prestige++;addXP(2000);persist();render();toast("Prestige effectué ! Multiplicateur augmenté.");});
 document.getElementById("doAscension").addEventListener("click",function(){if(save.prestige<10)return;if(!confirm("Effectuer une ascension ?"))return;save.money=100;save.owned={};save.prestige=0;save.ascension++;addXP(10000);persist();render();toast("Ascension effectuée !");});
 document.getElementById("doTranscension").addEventListener("click",function(){if(save.ascension<5)return;if(!confirm("Effectuer une transcendance ?"))return;save.money=100;save.owned={};save.prestige=0;save.ascension=0;save.transcension++;addXP(50000);persist();render();toast("Transcendance effectuée !");});
+const ADMIN_CODE="TYCOON2026";
+document.getElementById("adminOpen").addEventListener("click",function(){
+  const code=prompt("Code d'accès administrateur :");
+  if(code!==ADMIN_CODE){if(code!==null)toast("Code incorrect.");return;}
+  document.getElementById("adminPanel").style.display="block";
+  document.getElementById("adminPanel").scrollIntoView({behavior:"smooth",block:"start"});
+});
+document.getElementById("adminClose").addEventListener("click",()=>document.getElementById("adminPanel").style.display="none");
+document.getElementById("adminAddMoney").addEventListener("click",()=>{const n=Math.max(0,Number(document.getElementById("adminMoney").value)||0);save.money+=n;persist();render();toast("Argent ajouté !");});
+document.getElementById("adminAddXP").addEventListener("click",()=>{const n=Math.max(0,Number(document.getElementById("adminXP").value)||0);addXP(n);persist();render();toast("XP ajoutés !");});
+document.getElementById("adminAddPrestige").addEventListener("click",()=>{const n=Math.min(100000,Math.max(0,Math.floor(Number(document.getElementById("adminPrestige").value)||0)));save.prestige+=n;persist();render();toast("Prestiges ajoutés !");});
+document.getElementById("adminBoost").addEventListener("click",()=>{const n=Math.min(100000,Math.max(1,Number(document.getElementById("adminMultiplier").value)||1));save.upgrades+=Math.max(0,Math.ceil(Math.log(n)/Math.log(1.5)));persist();render();toast("Multiplicateur augmenté !");});
+document.getElementById("adminUnlock").addEventListener("click",()=>{BUILDINGS.forEach(b=>save.owned[b.id]=Math.max(1,save.owned[b.id]||0));save.money=Math.max(save.money,1000000000);persist();render();toast("Tous les bâtiments sont débloqués !");});
+document.getElementById("adminGift").addEventListener("click",()=>{const item={name:"Noyau admin cosmique",rarity:"Cosmique",income:100000000};save.exclusive.push(item);save.lastLoot=item;persist();render();toast("Objet cosmique ajouté à la collection !");});
+document.getElementById("adminReset").addEventListener("click",()=>{if(!confirm("Effacer définitivement la sauvegarde de cette partie sur cet appareil ?"))return;save=Object.assign({},DEFAULT,{owned:{},exclusive:[]});persist();render();toast("Partie réinitialisée.");});
 const now=Date.now(),elapsed=Math.min(86400,Math.max(0,(now-(save.lastSeen||now))/1000));if(elapsed>5&&income()>0){const bonus=income()*elapsed;save.money+=bonus;save.totalEarned+=bonus;addXP(bonus/100);toast("Bon retour ! +"+fmt(bonus)+" $ gagnés hors ligne.");}
 render();persist();
 setInterval(function(){const gain=income();save.money+=gain;save.totalEarned+=gain;addXP(gain/100);render();persist();},1000);
