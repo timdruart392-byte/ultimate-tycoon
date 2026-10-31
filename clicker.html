@@ -17,7 +17,8 @@ const defaults={coins:0,total:0,power:1,level:0,mult:1,boost:0,prestige:0,crit:0
 try{const v=JSON.parse(localStorage.getItem('clicker-infinity-save'));if(v)s={...defaults,...v}}catch{}
 const upgrades=[{id:'finger',name:'Super doigt',desc:'+1 diamant par clic',icon:'👆',level:()=>s.level,price:()=>Math.floor(15*Math.pow(1.65,s.level)),buy:()=>{s.level++;s.power++}},{id:'boost',name:'Double puissance',desc:'Multiplie tes gains par 2',icon:'🔥',level:()=>s.boost,price:()=>100*Math.pow(2,s.boost),buy:()=>{s.boost++;s.mult*=2}}];
 const goals=[['Premier clic','Effectue ton premier clic',()=>s.total>=1],['Débutant','Atteins 100 clics',()=>s.total>=100],['Acharné','Atteins 500 clics',()=>s.total>=500],['Millionnaire','Possède 1 000 diamants',()=>s.coins>=1000],['Machine de guerre','Atteins 10 de puissance',()=>s.power>=10],['Dieu du clic','Atteins le prestige 1',()=>s.prestige>=1],['Légende','Atteins 10 000 clics',()=>s.total>=10000]];
-const gain=()=>s.power*s.mult*Math.pow(2,s.prestige);let timer;\nlet leaderboard=[];try{leaderboard=JSON.parse(localStorage.getItem('clicker-infinity-leaderboard'))||[]}catch{}
+const gain=()=>s.power*s.mult*Math.pow(2,s.prestige);let timer;
+let leaderboard=[];try{leaderboard=JSON.parse(localStorage.getItem('clicker-infinity-leaderboard'))||[]}catch{}
 function say(t){$('toast').textContent=t;clearTimeout(timer);timer=setTimeout(()=>$('toast').textContent='Continue, la légende !',2000)}
 function save(){try{localStorage.setItem('clicker-infinity-save',JSON.stringify(s))}catch{}}
 function render(){$('coins').textContent=fmt(s.coins)+' 💎';$('perClick').textContent=fmt(gain());$('clicks').textContent=fmt(s.total);$('multiplier').textContent='x'+fmt(s.mult*Math.pow(2,s.prestige));$('prestigeCount').textContent=s.prestige;
