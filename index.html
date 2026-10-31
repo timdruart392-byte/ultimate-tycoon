@@ -169,12 +169,12 @@ const BOXES=[
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
 ];
-const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null};
+const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1};
 let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[]});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
 function fmt(n){if(!Number.isFinite(n))return "∞";if(Math.abs(n)<1000)return Math.floor(n).toLocaleString("fr-FR");const units=["K","M","B","T","Qa","Qi","Sx","Sp","Oc","No"];let x=Math.abs(n),i=-1;while(x>=1000&&i<units.length-1){x/=1000;i++;}return (n<0?"-":"")+x.toFixed(2)+units[i];}
-function multiplier(){return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5);}
+function multiplier(){return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1);}
 function income(){let n=0;BUILDINGS.forEach(b=>n+=(save.owned[b.id]||0)*b.income);save.exclusive.forEach(b=>n+=Number(b.income)||0);return n*multiplier();}
 function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display="none",2600);}
 function addXP(n){save.xp+=Math.max(0,Math.floor(n));}
@@ -227,7 +227,7 @@ document.getElementById("adminClose").addEventListener("click",()=>document.getE
 document.getElementById("adminAddMoney").addEventListener("click",()=>{const n=Math.max(0,Number(document.getElementById("adminMoney").value)||0);save.money+=n;persist();render();toast("Argent ajouté !");});
 document.getElementById("adminAddXP").addEventListener("click",()=>{const n=Math.max(0,Number(document.getElementById("adminXP").value)||0);addXP(n);persist();render();toast("XP ajoutés !");});
 document.getElementById("adminAddPrestige").addEventListener("click",()=>{const n=Math.min(100000,Math.max(0,Math.floor(Number(document.getElementById("adminPrestige").value)||0)));save.prestige+=n;persist();render();toast("Prestiges ajoutés !");});
-document.getElementById("adminBoost").addEventListener("click",()=>{const n=Math.min(100000,Math.max(1,Number(document.getElementById("adminMultiplier").value)||1));save.upgrades+=Math.max(0,Math.ceil(Math.log(n)/Math.log(1.5)));persist();render();toast("Multiplicateur augmenté !");});
+document.getElementById("adminBoost").addEventListener("click",()=>{const n=Math.min(100000,Math.max(1,Number(document.getElementById("adminMultiplier").value)||1));save.adminBoost=n;persist();render();toast("Multiplicateur augmenté !");});
 document.getElementById("adminUnlock").addEventListener("click",()=>{BUILDINGS.forEach(b=>save.owned[b.id]=Math.max(1,save.owned[b.id]||0));save.money=Math.max(save.money,1000000000);persist();render();toast("Tous les bâtiments sont débloqués !");});
 document.getElementById("adminGift").addEventListener("click",()=>{const item={name:"Noyau admin cosmique",rarity:"Cosmique",income:100000000};save.exclusive.push(item);save.lastLoot=item;persist();render();toast("Objet cosmique ajouté à la collection !");});
 document.getElementById("adminReset").addEventListener("click",()=>{if(!confirm("Effacer définitivement la sauvegarde de cette partie sur cet appareil ?"))return;save=Object.assign({},DEFAULT,{owned:{},exclusive:[]});persist();render();toast("Partie réinitialisée.");});
