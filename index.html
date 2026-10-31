@@ -258,6 +258,10 @@ const RANKS=RANK_NAMES.map((name,i)=>({
 }));
 const BOXES=[
 {id:"normal",name:"Lootbox normale",price:10000,currency:"money",icon:"📦",odds:[["Commun",55,100],["Rare",28,1000],["Épique",12,10000],["Légendaire",4,100000],["Cosmique",1,1000000]]},
+{id:"silver",name:"Lootbox argentée",price:250000,currency:"money",icon:"🥈",odds:[["Commun",30,500],["Rare",35,5000],["Épique",23,25000],["Légendaire",10,250000],["Cosmique",2,2500000]]},
+{id:"gold",name:"Lootbox dorée",price:2500000,currency:"money",icon:"🥇",odds:[["Rare",25,10000],["Épique",35,100000],["Légendaire",30,1000000],["Cosmique",10,10000000]]},
+{id:"token",name:"Lootbox à jetons",price:100,currency:"tokens",icon:"🪙",odds:[["Rare",40,5000],["Épique",35,50000],["Légendaire",20,500000],["Cosmique",5,5000000]]},
+{id:"megaToken",name:"Lootbox royale",price:1000,currency:"tokens",icon:"💎",odds:[["Épique",35,250000],["Légendaire",40,2500000],["Cosmique",25,25000000]]},
 {id:"epic",name:"Lootbox épique",price:10,currency:"prestige",icon:"💜",odds:[["Rare",35,5000],["Épique",40,25000],["Légendaire",20,250000],["Cosmique",5,2500000]]},
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
@@ -392,7 +396,7 @@ document.getElementById("upgradeCount").textContent=save.upgrades;
 document.getElementById("multiplier").textContent="x"+fmt(multiplier());
 document.getElementById("upgradePrice").textContent=fmt(price)+" $";
 document.getElementById("buyUpgrade").disabled=save.money<price;
-document.getElementById("lootList").innerHTML=BOXES.map(b=>'<article class="loot"><div class="emoji">'+b.icon+'</div><h3>'+b.name+'</h3><p>Coût : '+b.price+' '+(b.currency==="money"?"$":b.currency)+'</p><p>'+b.odds.map(o=>o[0]+" "+o[1]+"%").join(" · ")+'</p><button data-box="'+b.id+'" '+(save[b.currency]<b.price?'disabled':'')+'>Ouvrir</button></article>').join("");
+document.getElementById("lootList").innerHTML=BOXES.map(b=>'<article class="loot"><div class="emoji">'+b.icon+'</div><h3>'+b.name+'</h3><p>Coût : '+b.price+' '+({money:"$",tokens:"jetons",prestige:"prestiges",ascension:"ascensions",transcension:"transcendances"}[b.currency]||b.currency)+'</p><p>'+b.odds.map(o=>o[0]+" "+o[1]+"%").join(" · ")+'</p><button data-box="'+b.id+'" '+(save[b.currency]<b.price?'disabled':'')+'>Ouvrir</button></article>').join("");
 document.getElementById("lastLoot").textContent=save.lastLoot?save.lastLoot.name+" · "+save.lastLoot.rarity+" · +"+fmt(save.lastLoot.income)+" $/s":"Aucun pour le moment.";
 document.getElementById("collectionCount").textContent=save.exclusive.length+" objet"+(save.exclusive.length>1?"s":"");
 document.getElementById("collectionList").innerHTML=save.exclusive.length?save.exclusive.map(b=>'<article class="building"><div class="emoji">✨</div><div class="details"><h3>'+escapeHtml(b.name)+'</h3><p>'+escapeHtml(b.rarity)+' · +'+fmt(b.income)+' $/s</p></div></article>').join(""):'<p class="muted">Ta collection est vide. Ouvre des lootboxes pour obtenir des bâtiments exclusifs !</p>';
