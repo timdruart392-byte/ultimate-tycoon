@@ -46,7 +46,7 @@ h2{margin:0;font-size:23px}
 footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
 #adminPanel input{max-width:100%}
 @media(max-width:680px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.loot-grid{grid-template-columns:1fr}.building{align-items:flex-start}.buy{padding:9px 11px}.wrap{padding:12px 11px 35px}}
-</style>
+ .shop-card{min-height:145px;background:linear-gradient(145deg,#292044,#19192b);border-color:#51416f}.shop-price{color:#fbbf24!important;font-weight:900;font-size:14px!important}.shop-banner{padding:20px;border:1px solid #59448b;border-radius:18px;background:radial-gradient(circle at right,#50358a,#242039 65%);margin:14px 0}.shop-banner strong{font-size:clamp(24px,4vw,36px);display:block}.shop-section{margin:28px 0}.shop-section>p{color:var(--muted);margin:6px 0 14px}.shop-section h2{font-size:25px}.shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}@media(max-width:680px){.shop-grid{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <div class="wrap">
@@ -136,10 +136,11 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <div class="notice">Ce classement est enregistré uniquement dans le navigateur de cet appareil. Pour un classement mondial partagé entre tous les joueurs, il faudra connecter une base de données en ligne.</div>
 </section>
 <section class="page" id="tokenShop">
-<div class="section-title"><h2>🪙 Boutique aux jetons</h2><span class="muted">1 jeton chaque minute</span></div>
-<div class="notice">Tu gagnes automatiquement 1 jeton toutes les 60 secondes, même lorsque tu es absent. Les gamepasses s'achètent avec les jetons du jeu : aucun achat réel.</div>
-<div class="section-title"><h2>🎮 Gamepasses permanents</h2></div><div class="grid" id="passList"></div>
-<div class="section-title"><h2>🛍️ Objets spéciaux</h2></div><div class="grid" id="tokenItemList"></div>
+<div class="shop-banner"><strong>🪙 GRAND BAZAR ULTIME</strong><span>Une boutique géante avec des boosts, des reliques, des coffres et 12 gamepasses !</span><p>Ton solde : <b id="shopBalance">0 jeton</b> · +1 jeton chaque minute</p></div>
+<div class="notice">Les jetons continuent de s'accumuler hors ligne. Tous les articles sont achetés avec la monnaie virtuelle de ta partie, sans paiement réel.</div>
+<div class="shop-section"><h2>👑 Gamepasses légendaires</h2><p>Des multiplicateurs permanents pour faire exploser tes revenus.</p><div class="shop-grid" id="passList"></div></div>
+<div class="shop-section"><h2>⚡ Boosts temporaires et puissance</h2><p>Active des boosts pour accélérer ton empire.</p><div class="shop-grid" id="tokenItemList"></div></div>
+<div class="shop-section"><h2>🎟️ Codes cadeaux</h2>
 <div class="section-title"><h2>🎟️ Codes cadeaux</h2></div><div class="panel"><p class="muted">Chaque code ne peut être utilisé qu'une fois.</p>
 <div class="actions"><input id="giftCode" maxlength="30" placeholder="Entre ton code ici" style="flex:1;min-width:150px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><button id="redeemCode">Valider le code</button></div><p class="muted" id="codeMessage">Essaie le code HALLOWEEN 🎃</p></div></section>
 </main>
@@ -231,8 +232,8 @@ let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[]});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
 function fmt(n){if(!Number.isFinite(n))return "∞";if(Math.abs(n)<1000)return Math.floor(n).toLocaleString("fr-FR");const units=["K","M","B","T","Qa","Qi","Sx","Sp","Oc","No"];let x=Math.abs(n),i=-1;while(x>=1000&&i<units.length-1){x/=1000;i++;}return (n<0?"-":"")+x.toFixed(2)+units[i];}
-function multiplier(){const passBoost=save.passes&&save.passes.megaVIP?5:save.passes&&save.passes.vip?2:1;const timedBoost=save.tokenBoostUntil>Date.now()?2:1;return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1)*passBoost*timedBoost;}
-function accrueTokens(){const now=Date.now(),last=Number(save.lastTokenAt)||now,gained=Math.floor(Math.max(0,now-last)/60000);if(gained>0){save.tokens=(Number(save.tokens)||0)+gained;save.lastTokenAt=last+gained*60000;persist();}document.getElementById("tokens").textContent=fmt(save.tokens||0);}
+function multiplier(){const passBoost=GAMEPASSES.reduce((v,p)=>save.passes&&save.passes[p.id]?Math.max(v,p.boost):v,1);const timedBoost=save.tokenBoostUntil>Date.now()?2:1;return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1)*passBoost*timedBoost;}
+function accrueTokens(){const now=Date.now(),last=Number(save.lastTokenAt)||now,gained=Math.floor(Math.max(0,now-last)/60000);if(gained>0){save.tokens=(Number(save.tokens)||0)+gained;save.lastTokenAt=last+gained*60000;persist();}document.getElementById("tokens").textContent=fmt(save.tokens||0);const bal=document.getElementById("shopBalance");if(bal)bal.textContent=fmt(save.tokens||0)+" jetons";}
 function income(){let n=0;BUILDINGS.forEach(b=>n+=(save.owned[b.id]||0)*b.income);save.exclusive.forEach(b=>n+=Number(b.income)||0);return n*multiplier();}
 function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display="none",2600);}
 function addXP(n){save.xp+=Math.max(0,Math.floor(n));}
@@ -276,19 +277,46 @@ document.getElementById("doTranscension").disabled=save.ascension<5;
 renderTokenShop();
 }
 const GAMEPASSES=[
-{id:"vip",name:"VIP",icon:"👑",price:250,description:"Double définitivement tous tes revenus."},
-{id:"megaVIP",name:"Mega VIP",icon:"💎",price:1000,description:"Multiplie définitivement tes revenus par 5."}
+{id:"vip",name:"VIP",icon:"👑",price:250,description:"Double définitivement tes revenus.",boost:2},
+{id:"megaVIP",name:"Mega VIP",icon:"💎",price:1000,description:"x5 revenus permanents.",boost:5},
+{id:"ultraVIP",name:"Ultra VIP",icon:"🌟",price:5000,description:"x10 revenus permanents.",boost:10},
+{id:"godPass",name:"Gamepass Divin",icon:"⚡",price:20000,description:"x25 revenus permanents.",boost:25},
+{id:"cosmicPass",name:"Pass Cosmique",icon:"🌌",price:75000,description:"x50 revenus permanents.",boost:50},
+{id:"legendPass",name:"Pass Légendaire",icon:"🐉",price:250000,description:"x100 revenus permanents.",boost:100},
+{id:"titanPass",name:"Pass Titan",icon:"🗿",price:1000000,description:"x250 revenus permanents.",boost:250},
+{id:"infinityPass",name:"Pass Infini",icon:"♾️",price:5000000,description:"x500 revenus permanents.",boost:500},
+{id:"fortunePass",name:"Pass Fortune",icon:"🍀",price:15000,description:"+50 % de revenus permanents.",boost:1.5},
+{id:"overlordPass",name:"Pass Overlord",icon:"👹",price:15000000,description:"x1 000 revenus permanents.",boost:1000},
+{id:"celestialPass",name:"Pass Céleste",icon:"☄️",price:50000000,description:"x2 500 revenus permanents.",boost:2500},
+{id:"eternalPass",name:"Pass Éternel",icon:"🔱",price:250000000,description:"x10 000 revenus permanents.",boost:10000}
 ];
 const TOKEN_ITEMS=[
-{id:"boost",name:"Boost x2 · 10 minutes",icon:"⚡",price:25,description:"Double tes revenus pendant 10 minutes."},
-{id:"cash",name:"Coffre de 10 000 $",icon:"💰",price:10,description:"Ajoute 10 000 $ à ton argent."},
-{id:"xp",name:"Pack de 1 000 XP",icon:"⭐",price:15,description:"Ajoute 1 000 XP à ta progression."}
+{id:"boost",name:"Boost x2 · 10 min",icon:"⚡",price:25,description:"Double tes revenus pendant 10 minutes.",kind:"boost",amount:2,duration:600000},
+{id:"boost5",name:"Boost x5 · 10 min",icon:"🚀",price:100,description:"Multiplie tes revenus par 5 pendant 10 minutes.",kind:"boost",amount:5,duration:600000},
+{id:"boost10",name:"Boost x10 · 30 min",icon:"🔥",price:350,description:"Multiplie tes revenus par 10 pendant 30 minutes.",kind:"boost",amount:10,duration:1800000},
+{id:"cash",name:"Coffre de 10 000 $",icon:"💰",price:10,description:"Reçois 10 000 $.",kind:"cash",amount:10000},
+{id:"cash2",name:"Coffre de 1 million $",icon:"🤑",price:100,description:"Reçois 1 million de dollars.",kind:"cash",amount:1000000},
+{id:"cash3",name:"Coffre de 1 milliard $",icon:"🏦",price:1000,description:"Reçois 1 milliard de dollars.",kind:"cash",amount:1000000000},
+{id:"xp",name:"Pack de 1 000 XP",icon:"⭐",price:15,description:"Ajoute 1 000 XP.",kind:"xp",amount:1000},
+{id:"xp2",name:"Pack de 100 000 XP",icon:"🌠",price:250,description:"Ajoute 100 000 XP.",kind:"xp",amount:100000},
+{id:"xp3",name:"Pack de 10 millions XP",icon:"✨",price:2500,description:"Ajoute 10 millions XP.",kind:"xp",amount:10000000},
+{id:"tokens1",name:"Pochette de 50 jetons",icon:"🪙",price:40,description:"Récupère 50 jetons.",kind:"tokens",amount:50},
+{id:"tokens2",name:"Sac de 500 jetons",icon:"💼",price:350,description:"Récupère 500 jetons.",kind:"tokens",amount:500},
+{id:"tokens3",name:"Coffre de 5 000 jetons",icon:"🎁",price:3000,description:"Récupère 5 000 jetons.",kind:"tokens",amount:5000},
+{id:"prestige",name:"1 Prestige",icon:"👑",price:500,description:"Ajoute un prestige.",kind:"prestige",amount:1},
+{id:"prestige5",name:"5 Prestiges",icon:"👑",price:2200,description:"Ajoute cinq prestiges.",kind:"prestige",amount:5},
+{id:"ascension",name:"1 Ascension",icon:"🌌",price:5000,description:"Ajoute une ascension.",kind:"ascension",amount:1},
+{id:"lucky",name:"Coffre surprise",icon:"🎲",price:75,description:"Récompense aléatoire : argent, XP ou jetons.",kind:"lucky"},
+{id:"megaLucky",name:"Coffre mystère",icon:"🔮",price:500,description:"Grosse récompense aléatoire.",kind:"megaLucky"},
+{id:"collection",name:"Relique exclusive",icon:"🏺",price:750,description:"Ajoute une relique à ta collection.",kind:"relic",amount:250000},
+{id:"relic2",name:"Artefact cosmique",icon:"💠",price:5000,description:"Ajoute un artefact très rare.",kind:"relic",amount:25000000},
+{id:"relic3",name:"Cœur de galaxie",icon:"💫",price:50000,description:"Ajoute un objet mythique à ta collection.",kind:"relic",amount:2500000000}
 ];
 const GIFT_CODES={HALLOWEEN:10000,BIENVENUE:100,TYCOON:500,UPDATE:1000};
 function renderTokenShop(){
  const passes=document.getElementById("passList");if(!passes)return;
- passes.innerHTML=GAMEPASSES.map(p=>{const owned=!!(save.passes&&save.passes[p.id]);return '<article class="building"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p>Prix : '+fmt(p.price)+' jetons</p></div><button data-pass="'+p.id+'" '+(owned||save.tokens<p.price?'disabled':'')+'>'+(owned?'Possédé':'Acheter')+'</button></article>';}).join("");
- document.getElementById("tokenItemList").innerHTML=TOKEN_ITEMS.map(p=>'<article class="building"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p>Prix : '+p.price+' jetons</p></div><button data-token-item="'+p.id+'" '+(save.tokens<p.price?'disabled':'')+'>Acheter</button></article>').join("");
+ passes.innerHTML=GAMEPASSES.map(p=>{const owned=!!(save.passes&&save.passes[p.id]);return '<article class="building shop-card"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p class="shop-price">🪙 '+fmt(p.price)+' jetons</p></div><button data-pass="'+p.id+'" '+(owned||save.tokens<p.price?'disabled':'')+'>'+(owned?'Possédé':'Acheter')+'</button></article>';}).join("");
+ document.getElementById("tokenItemList").innerHTML=TOKEN_ITEMS.map(p=>'<article class="building shop-card"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p class="shop-price">🪙 '+fmt(p.price)+' jetons</p></div><button data-token-item="'+p.id+'" '+(save.tokens<p.price?'disabled':'')+'>Acheter</button></article>').join("");
 }
 function renderLeaderboard(){
  let rows=[];try{rows=JSON.parse(localStorage.getItem("ultimate-tycoon-leaderboard")||"[]");}catch(e){}
@@ -325,8 +353,8 @@ document.addEventListener("click",function(e){
 const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===tab));document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.tab));return;}
 const buy=e.target.closest("[data-buy]");if(buy){const b=BUILDINGS.find(x=>x.id===buy.dataset.buy);if(!b||save.money<b.cost)return;save.money-=b.cost;save.owned[b.id]=(save.owned[b.id]||0)+1;addXP(Math.max(5,Math.floor(b.cost/100)));persist();render();return;}
 const boxButton=e.target.closest("[data-box]");if(boxButton){openBox(boxButton.dataset.box);return;}
-const passButton=e.target.closest("[data-pass]");if(passButton){const p=GAMEPASSES.find(x=>x.id===passButton.dataset.pass);if(!p||save.tokens<p.price||save.passes[p.id])return;save.tokens-=p.price;if(p.id==="megaVIP")save.passes.vip=false;save.passes[p.id]=true;persist();render();toast(p.name+" activé définitivement !");return;}
-const itemButton=e.target.closest("[data-token-item]");if(itemButton){const p=TOKEN_ITEMS.find(x=>x.id===itemButton.dataset.tokenItem);if(!p||save.tokens<p.price)return;save.tokens-=p.price;if(p.id==="boost")save.tokenBoostUntil=Math.max(Date.now(),Number(save.tokenBoostUntil)||0)+600000;if(p.id==="cash")save.money+=10000;if(p.id==="xp")addXP(1000);persist();render();toast(p.name+" acheté !");return;}
+const passButton=e.target.closest("[data-pass]");if(passButton){const p=GAMEPASSES.find(x=>x.id===passButton.dataset.pass);if(!p||save.tokens<p.price||save.passes[p.id])return;save.tokens-=p.price;save.passes[p.id]=true;persist();render();toast(p.name+" activé définitivement !");return;}
+const itemButton=e.target.closest("[data-token-item]");if(itemButton){const p=TOKEN_ITEMS.find(x=>x.id===itemButton.dataset.tokenItem);if(!p||save.tokens<p.price)return;save.tokens-=p.price;if(p.kind==="boost"){save.tokenBoostUntil=Math.max(Date.now(),Number(save.tokenBoostUntil)||0)+p.duration;save.tokenBoostAmount=p.amount;}if(p.kind==="cash")save.money+=p.amount;if(p.kind==="xp")addXP(p.amount);if(p.kind==="tokens")save.tokens+=p.amount;if(p.kind==="prestige")save.prestige+=p.amount;if(p.kind==="ascension")save.ascension+=p.amount;if(p.kind==="relic"){const relic={name:p.name,rarity:"Exclusif",income:p.amount};save.exclusive.push(relic);save.lastLoot=relic;}if(p.kind==="lucky"||p.kind==="megaLucky"){const scale=p.kind==="lucky"?1:10;const prize=Math.floor((Math.random()<.5?10000:1000)*scale);if(Math.random()<.5)save.money+=prize;else save.tokens+=Math.floor(prize/100);toast("Coffre ouvert : récompense surprise !");}persist();render();toast(p.name+" acheté !");return;}
 });
 document.getElementById("buyUpgrade").addEventListener("click",function(){const p=Math.floor(5000*Math.pow(4,save.upgrades));if(save.money<p)return;save.money-=p;save.upgrades++;addXP(100);persist();render();toast("Amélioration achetée !");});
 function openBox(id){const b=BOXES.find(x=>x.id===id);if(!b||save[b.currency]<b.price)return;save[b.currency]-=b.price;let rarity;if(save.pity>=9&&b.odds.some(x=>x[0]==="Légendaire"||x[0]==="Cosmique")){rarity=b.odds.some(x=>x[0]==="Cosmique")?"Cosmique":"Légendaire";}else{let roll=Math.random()*100,total=0;rarity=b.odds[0][0];for(const o of b.odds){total+=o[1];if(roll<total){rarity=o[0];break;}}}const prize=b.odds.find(x=>x[0]===rarity)||b.odds[0];const names=["Tour infinie","Réacteur quantique","Palais céleste","Mine dimensionnelle","Noyau galactique"];const item={name:rarity+" "+names[Math.floor(Math.random()*names.length)],rarity:rarity,income:prize[2]};save.exclusive.push(item);save.lastLoot=item;save.pity=(rarity==="Légendaire"||rarity==="Cosmique")?0:save.pity+1;addXP(250);persist();render();toast("Tu as obtenu : "+item.name+" !");}
