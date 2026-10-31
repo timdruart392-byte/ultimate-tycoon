@@ -156,6 +156,8 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <div class="section-title"><h2>₿ Bourse crypto virtuelle</h2><span class="muted">Marché simulé · monnaie du jeu</span></div>
   <div class="notice">Les cours évoluent automatiquement. Achète et revends des cryptos avec tes dollars virtuels. Les gains et pertes restent dans ta sauvegarde : aucune vraie cryptomonnaie ni aucun paiement.</div>
   <div class="panel"><h3>💼 Ton portefeuille</h3><p>Valeur actuelle : <strong id="marketValue">0 $</strong></p><p>Investi : <strong id="marketInvested">0 $</strong></p><p>Plus-value : <strong id="marketProfit">0 $</strong></p></div>
+  <div class="panel" style="margin-top:12px"><h3>🪙 Créer ta propre cryptomonnaie</h3><p class="muted">Nom, symbole et cours de départ personnalisés. Frais : 250 000 $ virtuels. Maximum 10 cryptos créées.</p><div class="actions"><input id="newCoinName" maxlength="22" placeholder="Nom de ta crypto" style="flex:2;min-width:140px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><input id="newCoinSymbol" maxlength="6" placeholder="SYMBOLE" style="flex:1;min-width:90px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><input id="newCoinPrice" type="number" min="1" max="1000000000" value="100" style="flex:1;min-width:110px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"></div><button id="createCoin" style="margin-top:10px">Créer ma crypto · 250 000 $</button><p id="coinCreateMessage" class="muted">Ta crypto sera ajoutée à ta bourse personnelle.</p></div>
+  <div class="section-title"><h2>📈 Cryptomonnaies disponibles</h2><span class="muted" id="coinCount"></span></div>
   <div class="grid" id="marketList" style="margin-top:12px"></div>
   <div class="panel" style="margin-top:12px"><h3>📊 Historique récent</h3><div id="marketHistory" class="muted">Le marché vient d'ouvrir.</div></div>
 </section>
@@ -274,46 +276,40 @@ function dailyMissions(){return [
 function renderMissions(){ensureDaily();const missions=dailyMissions();document.getElementById("missionDate").textContent="Jour : "+save.daily.date;document.getElementById("dailyMissionList").innerHTML=missions.map(m=>{const done=m.progress>=m.goal;return '<article class="panel"><h3>'+m.title+'</h3><p class="muted">'+m.description+'</p><div class="progress"><div style="width:'+Math.min(100,m.progress/m.goal*100)+'%"></div></div><p><strong>'+fmt(m.progress)+' / '+fmt(m.goal)+'</strong> '+m.unit+'</p><span class="muted">'+(done?'✅ Terminée':'⏳ En cours')+'</span></article>';}).join("");const all=missions.every(m=>m.progress>=m.goal);document.getElementById("dailyBonusText").textContent=all?(save.daily.claimed?"Bonus déjà récupéré aujourd'hui !":"Les trois missions sont terminées : récupère 500 jetons, 100 000 $ et 5 000 XP !"):"Termine les trois missions pour récupérer 500 jetons, 100 000 $ et 5 000 XP.";document.getElementById("claimDailyBonus").disabled=!all||save.daily.claimed;document.getElementById("claimDailyBonus").textContent=save.daily.claimed?"Bonus récupéré":"Récupérer le bonus";}
 
 const MARKET_ASSETS=[{id:"btc",name:"Bitcoin",symbol:"BTC",icon:"₿",start:50000},{id:"eth",name:"Ethereum",symbol:"ETH",icon:"◆",start:2500},{id:"sol",name:"Solana",symbol:"SOL",icon:"◎",start:120}];
+function allMarketAssets(){return MARKET_ASSETS.concat(save.market&&Array.isArray(save.market.customAssets)?save.market.customAssets:[]);}
 function ensureMarket(){
  if(!save.market||typeof save.market!=="object")save.market={};
  const m=save.market;
- if(!m.prices)m.prices={};if(!m.holdings)m.holdings={};if(!m.invested)m.invested={};if(!Array.isArray(m.history))m.history=[];
- MARKET_ASSETS.forEach(a=>{if(!(Number(m.prices[a.id])>0))m.prices[a.id]=a.start;if(!Number.isFinite(Number(m.holdings[a.id])))m.holdings[a.id]=0;if(!Number.isFinite(Number(m.invested[a.id])))m.invested[a.id]=0;});
+ if(!m.prices)m.prices={};if(!m.holdings)m.holdings={};if(!m.invested)m.invested={};if(!Array.isArray(m.history))m.history=[];if(!Array.isArray(m.customAssets))m.customAssets=[];if(!Number.isFinite(m.nextId))m.nextId=1;
+ allMarketAssets().forEach(a=>{if(!(Number(m.prices[a.id])>0))m.prices[a.id]=a.start;if(!Number.isFinite(Number(m.holdings[a.id])))m.holdings[a.id]=0;if(!Number.isFinite(Number(m.invested[a.id])))m.invested[a.id]=0;});
 }
 function renderMarket(){
- const root=document.getElementById("marketList");if(!root)return;ensureMarket();
- let total=0,invested=0;
- root.innerHTML=MARKET_ASSETS.map(a=>{
-  const price=save.market.prices[a.id],qty=save.market.holdings[a.id],cost=save.market.invested[a.id],value=qty*price;
-  total+=value;invested+=cost;
-  return '<article class="panel"><div class="section-title"><h2>'+a.icon+' '+a.name+'</h2><strong>'+a.symbol+'</strong></div><p>Cours : <strong>'+fmt(price)+' $</strong></p><p>Variation : <strong>'+((marketChanges[a.id]||0)>=0?"+":"")+((marketChanges[a.id]||0)*100).toFixed(2)+' %</strong></p><p>Possédé : '+qty.toFixed(6)+' '+a.symbol+'</p><p>Valeur : '+fmt(value)+' $</p><div class="actions"><button data-market-buy="'+a.id+'">Acheter 1</button><button class="secondary" data-market-sell="'+a.id+'" '+(qty<=0?'disabled':'')+'>Vendre 1</button><button class="gold" data-market-buymax="'+a.id+'">Acheter au maximum</button></div></article>';
+ const root=document.getElementById("marketList");if(!root)return;ensureMarket();let total=0,invested=0;const assets=allMarketAssets();
+ root.innerHTML=assets.map(a=>{
+  const price=save.market.prices[a.id],qty=save.market.holdings[a.id],cost=save.market.invested[a.id],value=qty*price;total+=value;invested+=cost;const change=marketChanges[a.id]||0;
+  return '<article class="panel"><div class="section-title"><h2>'+a.icon+' '+escapeHtml(a.name)+'</h2><strong>'+escapeHtml(a.symbol)+'</strong></div><p>Cours : <strong>'+fmt(price)+' $</strong></p><p>Variation : <strong style="color:'+(change>=0?'#22c55e':'#f87171')+'">'+(change>=0?"+":"")+(change*100).toFixed(2)+' %</strong></p><p>Possédé : '+qty.toFixed(6)+' '+escapeHtml(a.symbol)+'</p><p>Valeur : '+fmt(value)+' $</p><div class="actions"><button data-market-buy="'+a.id+'">Acheter 1</button><button class="secondary" data-market-sell="'+a.id+'" '+(qty<=0?'disabled':'')+'>Vendre 1</button><button class="gold" data-market-buymax="'+a.id+'">Acheter au maximum</button><button class="danger" data-market-sellall="'+a.id+'" '+(qty<=0?'disabled':'')+'>Tout vendre</button></div></article>';
  }).join("");
- document.getElementById("marketValue").textContent=fmt(total)+" $";
- document.getElementById("marketInvested").textContent=fmt(invested)+" $";
+ document.getElementById("coinCount").textContent=assets.length+" actifs";document.getElementById("marketValue").textContent=fmt(total)+" $";document.getElementById("marketInvested").textContent=fmt(invested)+" $";
  const profit=total-invested,el=document.getElementById("marketProfit");el.textContent=(profit>=0?"+":"")+fmt(profit)+" $";el.style.color=profit>=0?"#22c55e":"#f87171";
- const hist=document.getElementById("marketHistory");hist.textContent=save.market.history.length?save.market.history.slice(-5).reverse().join(" · "):"Le marché vient d'ouvrir.";
+ const hist=document.getElementById("marketHistory");hist.textContent=save.market.history.length?save.market.history.slice(-6).reverse().join(" · "):"Le marché vient d'ouvrir.";
 }
 const marketChanges={btc:0,eth:0,sol:0};
-function updateMarket(){
- ensureMarket();
- MARKET_ASSETS.forEach(a=>{const change=(Math.random()-0.49)*0.035;marketChanges[a.id]=change;save.market.prices[a.id]=Math.max(a.start*0.05,save.market.prices[a.id]*(1+change));});
- persist();
- if(document.getElementById("market")?.classList.contains("active"))renderMarket();
-}
+function updateMarket(){ensureMarket();allMarketAssets().forEach(a=>{const change=(Math.random()-0.49)*(Number(a.volatility)||0.035);marketChanges[a.id]=change;save.market.prices[a.id]=Math.max(a.start*0.05,save.market.prices[a.id]*(1+change));});persist();if(document.getElementById("market")?.classList.contains("active"))renderMarket();}
 function marketTrade(id,side,max){
- ensureMarket();const a=MARKET_ASSETS.find(x=>x.id===id);if(!a)return;
- const price=save.market.prices[id];let qty=max?Math.min(save.money/price,1000000):1;
- if(side==="buy"){
-  if(qty<=0||save.money+1e-9<qty*price){toast("Pas assez d'argent virtuel.");return;}
-  const cost=qty*price;save.money-=cost;save.market.holdings[id]+=qty;save.market.invested[id]+=cost;
- }else{
-  qty=Math.min(1,save.market.holdings[id]);if(qty<=0)return;
-  const proceeds=qty*price,oldQty=save.market.holdings[id],avg=oldQty>0?save.market.invested[id]/oldQty:0;
-  save.money+=proceeds;save.market.holdings[id]-=qty;save.market.invested[id]=Math.max(0,save.market.invested[id]-avg*qty);
- }
- const label=(side==="buy"?"Achat":"Vente")+" "+qty.toFixed(4)+" "+a.symbol+" à "+fmt(price)+" $";
- save.market.history.push(label);save.market.history=save.market.history.slice(-20);
- persist();render();renderMarket();toast(side==="buy"?"Crypto achetée !":"Crypto vendue !");
+ ensureMarket();const a=allMarketAssets().find(x=>x.id===id);if(!a)return;const price=save.market.prices[id];let qty=max?(side==="buy"?Math.min(save.money/price,1000000):save.market.holdings[id]):1;
+ if(side==="buy"){if(qty<=0||save.money+1e-9<qty*price){toast("Pas assez d'argent virtuel.");return;}const cost=qty*price;save.money-=cost;save.market.holdings[id]+=qty;save.market.invested[id]+=cost;}
+ else{qty=Math.min(qty,save.market.holdings[id]);if(qty<=0)return;const proceeds=qty*price,oldQty=save.market.holdings[id],avg=oldQty>0?save.market.invested[id]/oldQty:0;save.money+=proceeds;save.market.holdings[id]-=qty;save.market.invested[id]=Math.max(0,save.market.invested[id]-avg*qty);}
+ save.market.history.push((side==="buy"?"Achat ":"Vente ")+qty.toFixed(4)+" "+a.symbol+" à "+fmt(price)+" $");save.market.history=save.market.history.slice(-30);persist();render();renderMarket();toast(side==="buy"?"Crypto achetée !":"Crypto vendue !");
+}
+function createMarketCoin(){
+ ensureMarket();const name=document.getElementById("newCoinName").value.trim(),symbol=document.getElementById("newCoinSymbol").value.trim().toUpperCase(),price=Number(document.getElementById("newCoinPrice").value),msg=document.getElementById("coinCreateMessage");
+ if(name.length<2||!/^[A-Z0-9]{2,6}$/.test(symbol)||!Number.isFinite(price)||price<1||price>1000000000){msg.textContent="Vérifie le nom, le symbole (2 à 6 caractères) et le cours (1 à 1 milliard).";return;}
+ if(save.market.customAssets.length>=10){msg.textContent="Limite atteinte : 10 cryptos personnalisées maximum.";return;}
+ if(allMarketAssets().some(a=>a.symbol.toUpperCase()===symbol)){msg.textContent="Ce symbole est déjà utilisé.";return;}
+ if(save.money<250000){msg.textContent="Il te faut 250 000 $ virtuels pour créer une crypto.";return;}
+ const id="custom_"+save.market.nextId++,asset={id:id,name:name,symbol:symbol,icon:"🪙",start:price,volatility:0.05};
+ save.money-=250000;save.market.customAssets.push(asset);save.market.prices[id]=price;save.market.holdings[id]=0;save.market.invested[id]=0;save.market.history.push("Création de "+name+" ("+symbol+")");
+ document.getElementById("newCoinName").value="";document.getElementById("newCoinSymbol").value="";document.getElementById("newCoinPrice").value="100";msg.textContent=name+" est maintenant cotée !";persist();render();renderMarket();toast("Nouvelle crypto créée !");
 }
 
 function render(){
@@ -400,6 +396,7 @@ function renderLeaderboard(){
  const rank=rows.findIndex(r=>r.name===name);
  document.getElementById("myRank").textContent=rank>=0?"Ton classement enregistré : #"+(rank+1):"Aucun score enregistré.";
 }
+document.getElementById("createCoin").addEventListener("click",createMarketCoin);
 document.getElementById("redeemCode").addEventListener("click",function(){
  const code=document.getElementById("giftCode").value.trim().toUpperCase();
  if(!code){document.getElementById("codeMessage").textContent="Entre un code.";return;}
@@ -424,6 +421,7 @@ document.addEventListener("click",function(e){
 
 const marketBuy=e.target.closest("[data-market-buy]");if(marketBuy){marketTrade(marketBuy.dataset.marketBuy,"buy",false);return;}
 const marketSell=e.target.closest("[data-market-sell]");if(marketSell){marketTrade(marketSell.dataset.marketSell,"sell",false);return;}
+const marketSellAll=e.target.closest("[data-market-sellall]");if(marketSellAll){marketTrade(marketSellAll.dataset.marketSellall,"sell",true);return;}
 const marketMax=e.target.closest("[data-market-buymax]");if(marketMax){marketTrade(marketMax.dataset.marketBuymax,"buy",true);return;}
 
 const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===tab));document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.tab));return;}
