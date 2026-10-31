@@ -170,6 +170,29 @@ const BUILDINGS=[
 {id:"rocket",name:"Base spatiale",cost:10000000,income:300000,icon:"🚀"},
 {id:"planet",name:"Planète minière",cost:100000000,income:2500000,icon:"🪐"}
 ];
+// 300 bâtiments supplémentaires générés avec des noms et des revenus distincts.
+const BUILDING_PREFIXES=[
+"Mini","Grand","Mega","Turbo","Neo","Ultra","Hyper","Royal","Stellaire","Galactique",
+"Quantique","Solaire","Lunaire","Cosmique","Interdimensionnel","Céleste","Éternel","Plasma","Cyber","Titan"
+];
+const BUILDING_TYPES=[
+"Atelier","Laboratoire","Centre commercial","Mine","Ferme","Usine","Tour","Port","Aéroport","Casino",
+"Data center","Station","基地","Palais","Complexe"
+];
+const BUILDING_ICONS=["🏢","🏭","🏬","⛏️","🌾","🏗️","🏙️","🚢","✈️","🎰","💻","🛰️","🏰","🏯","🌐"];
+for(let i=0;i<300;i++){
+ const prefix=BUILDING_PREFIXES[Math.floor(i/BUILDING_TYPES.length)];
+ const typeIndex=i%BUILDING_TYPES.length;
+ const type=BUILDING_TYPES[typeIndex];
+ const tier=i+1;
+ BUILDINGS.push({
+  id:"empire_"+tier,
+  name:prefix+" "+type+" "+tier,
+  cost:Math.floor(100000000*Math.pow(1.55,tier)),
+  income:Math.floor(2500000*Math.pow(1.5,tier)),
+  icon:BUILDING_ICONS[typeIndex]
+ });
+}
 const RANK_NAMES=[
 "Débutant","Bronze","Argent","Or","Diamant","Maître","Grand Maître","Légende","Divin","Ultime",
 "Champion","Héros","Mythique","Immortel","Céleste","Souverain","Titan","Colosse","Phénix","Astral",
