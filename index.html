@@ -328,7 +328,7 @@ const TOKEN_ITEMS=[
 {id:"relic2",name:"Artefact cosmique",icon:"💠",price:5000,description:"Ajoute un artefact très rare.",kind:"relic",amount:25000000},
 {id:"relic3",name:"Cœur de galaxie",icon:"💫",price:50000,description:"Ajoute un objet mythique à ta collection.",kind:"relic",amount:2500000000}
 ];
-const GIFT_CODES={HALLOWEEN:10000,BIENVENUE:100,TYCOON:500,UPDATE:1000};
+const GIFT_CODES={HALLOWEEN:10000,BIENVENUE:100,TYCOON:500,UPDATE:1000,MEGA500M:500000000};
 function renderTokenShop(){
  const passes=document.getElementById("passList");if(!passes)return;
  passes.innerHTML=GAMEPASSES.map(p=>{const owned=!!(save.passes&&save.passes[p.id]);return '<article class="building shop-card"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p class="shop-price">🪙 '+fmt(p.price)+' jetons</p></div><button data-pass="'+p.id+'" '+(owned||save.tokens<p.price?'disabled':'')+'>'+(owned?'Possédé':'Acheter')+'</button></article>';}).join("");
