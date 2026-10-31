@@ -76,6 +76,7 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <button data-tab="tokenShop">🪙 Boutique</button>
   <button data-tab="missions">🎯 Missions</button>
   <button data-tab="market">₿ Bourse crypto</button>
+  <button data-tab="rewards">🎡 Roue & succès</button>
 </nav>
 <main>
 <section class="page active" id="business">
@@ -151,6 +152,13 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
 <div class="shop-section"><h2>🎟️ Codes cadeaux</h2>
 <div class="section-title"><h2>🎟️ Codes cadeaux</h2></div><div class="panel"><p class="muted">Chaque code ne peut être utilisé qu'une fois.</p>
 <div class="actions"><input id="giftCode" maxlength="30" placeholder="Entre ton code ici" style="flex:1;min-width:150px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><button id="redeemCode">Valider le code</button></div><p class="muted" id="codeMessage">Essaie le code HALLOWEEN 🎃</p></div></section>
+
+<section class="page" id="rewards">
+  <div class="section-title"><h2>🎡 Roue de la fortune</h2><span class="muted" id="wheelStatus">Disponible chaque jour</span></div>
+  <div class="panel"><p class="muted">Tourne gratuitement une fois par jour pour gagner une récompense virtuelle.</p><div class="actions"><button class="gold" id="spinWheel">🎡 Tourner la roue</button><strong id="wheelResult" class="muted">Bonne chance !</strong></div></div>
+  <div class="section-title"><h2>🏅 Succès à débloquer</h2><span class="muted">Récompenses uniques</span></div>
+  <div class="grid" id="achievementList"></div>
+</section>
 
 <section class="page" id="market">
   <div class="section-title"><h2>₿ Bourse crypto virtuelle</h2><span class="muted">Marché simulé · monnaie du jeu</span></div>
@@ -246,7 +254,7 @@ const BOXES=[
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
 ];
-const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),market:{prices:{btc:50000,eth:2500,sol:120},holdings:{btc:0,eth:0,sol:0},invested:{btc:0,eth:0,sol:0},history:[]},redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false}};
+const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),market:{prices:{btc:50000,eth:2500,sol:120},holdings:{btc:0,eth:0,sol:0},invested:{btc:0,eth:0,sol:0},history:[]},redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false},wheelDate:"",achievements:{}};
 let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[],daily:Object.assign({},DEFAULT.daily,v&&v.daily||{})});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
@@ -273,6 +281,33 @@ function dailyMissions(){return [
 {id:"build",title:"🏗️ Constructeur",description:"Achète 3 bâtiments",progress:Math.min(3,save.daily.buildings),goal:3,unit:"bâtiments"},
 {id:"box",title:"📦 Collectionneur",description:"Ouvre 1 lootbox",progress:Math.min(1,save.daily.boxes),goal:1,unit:"lootbox"}
 ];}
+const ACHIEVEMENTS=[
+{id:"first_building",name:"Premier investissement",description:"Possède 1 bâtiment",test:()=>Object.values(save.owned).reduce((a,b)=>a+(Number(b)||0),0)>=1,reward:()=>{save.money+=5000;save.tokens+=10;},label:"+5 000 $ et 10 jetons"},
+{id:"ten_buildings",name:"Magnat immobilier",description:"Possède 10 bâtiments",test:()=>Object.values(save.owned).reduce((a,b)=>a+(Number(b)||0),0)>=10,reward:()=>{save.money+=100000;save.tokens+=50;},label:"+100 000 $ et 50 jetons"},
+{id:"million_earned",name:"Premier million",description:"A gagné 1 000 000 $ au total",test:()=>save.totalEarned>=1000000,reward:()=>{save.money+=250000;save.tokens+=100;},label:"+250 000 $ et 100 jetons"},
+{id:"xp_master",name:"Apprenti légendaire",description:"Atteins 100 000 XP",test:()=>save.xp>=100000,reward:()=>{save.xp+=25000;save.tokens+=150;},label:"+25 000 XP et 150 jetons"},
+{id:"prestige_one",name:"Renaissance",description:"Effectue ton premier prestige",test:()=>save.prestige>=1||save.ascension>=1||save.transcension>=1,reward:()=>{save.money+=1000000;save.tokens+=250;},label:"+1 000 000 $ et 250 jetons"},
+{id:"crypto_creator",name:"Créateur de marché",description:"Crée une cryptomonnaie personnalisée",test:()=>!!(save.market&&save.market.customAssets&&save.market.customAssets.length),reward:()=>{save.tokens+=300;save.xp+=5000;},label:"+300 jetons et 5 000 XP"}
+];
+function renderRewards(){
+ const today=new Date().toLocaleDateString("en-CA"),used=save.wheelDate===today;
+ const status=document.getElementById("wheelStatus"),button=document.getElementById("spinWheel");
+ if(status)status.textContent=used?"Déjà utilisée aujourd'hui":"Disponible aujourd'hui";
+ if(button)button.disabled=used;
+ const list=document.getElementById("achievementList");
+ if(list)list.innerHTML=ACHIEVEMENTS.map(a=>{const done=!!save.achievements[a.id],ready=a.test();return '<article class="panel"><h3>'+(done?"✅ ":"🏅 ")+a.name+'</h3><p class="muted">'+a.description+'</p><p><strong>'+a.label+'</strong></p><button data-achievement="'+a.id+'" '+(done||!ready?'disabled':'')+'>'+(done?"Récompense récupérée":ready?"Récupérer":"Pas encore débloqué")+'</button></article>';}).join("");
+}
+document.getElementById("spinWheel").addEventListener("click",function(){
+ const today=new Date().toLocaleDateString("en-CA");if(save.wheelDate===today)return;
+ const prizes=[{name:"+25 000 $",run:()=>save.money+=25000},{name:"+100 000 $",run:()=>save.money+=100000},{name:"+25 jetons",run:()=>save.tokens+=25},{name:"+100 jetons",run:()=>save.tokens+=100},{name:"+5 000 XP",run:()=>addXP(5000)},{name:"Boost x2 pendant 5 minutes",run:()=>{save.tokenBoostUntil=Math.max(Date.now(),Number(save.tokenBoostUntil)||0)+300000;save.tokenBoostAmount=2;}},{name:"+1 000 000 $",run:()=>save.money+=1000000}];
+ const weights=[30,25,20,12,10,2,1];let roll=Math.random()*weights.reduce((a,b)=>a+b,0),idx=0;while(roll>=weights[idx]&&idx<weights.length-1){roll-=weights[idx];idx++;}
+ prizes[idx].run();save.wheelDate=today;document.getElementById("wheelResult").textContent="🎉 Récompense : "+prizes[idx].name;persist();render();toast("Roue : "+prizes[idx].name+" !");
+});
+document.addEventListener("click",function(e){
+ const btn=e.target.closest("[data-achievement]");if(!btn)return;
+ const a=ACHIEVEMENTS.find(x=>x.id===btn.dataset.achievement);if(!a||save.achievements[a.id]||!a.test())return;
+ a.reward();save.achievements[a.id]=true;persist();render();toast("Succès débloqué : "+a.name+" !");
+});
 function renderMissions(){ensureDaily();const missions=dailyMissions();document.getElementById("missionDate").textContent="Jour : "+save.daily.date;document.getElementById("dailyMissionList").innerHTML=missions.map(m=>{const done=m.progress>=m.goal;return '<article class="panel"><h3>'+m.title+'</h3><p class="muted">'+m.description+'</p><div class="progress"><div style="width:'+Math.min(100,m.progress/m.goal*100)+'%"></div></div><p><strong>'+fmt(m.progress)+' / '+fmt(m.goal)+'</strong> '+m.unit+'</p><span class="muted">'+(done?'✅ Terminée':'⏳ En cours')+'</span></article>';}).join("");const all=missions.every(m=>m.progress>=m.goal);document.getElementById("dailyBonusText").textContent=all?(save.daily.claimed?"Bonus déjà récupéré aujourd'hui !":"Les trois missions sont terminées : récupère 500 jetons, 100 000 $ et 5 000 XP !"):"Termine les trois missions pour récupérer 500 jetons, 100 000 $ et 5 000 XP.";document.getElementById("claimDailyBonus").disabled=!all||save.daily.claimed;document.getElementById("claimDailyBonus").textContent=save.daily.claimed?"Bonus récupéré":"Récupérer le bonus";}
 
 const MARKET_ASSETS=[{id:"btc",name:"Bitcoin",symbol:"BTC",icon:"₿",start:50000},{id:"eth",name:"Ethereum",symbol:"ETH",icon:"◆",start:2500},{id:"sol",name:"Solana",symbol:"SOL",icon:"◎",start:120}];
@@ -342,6 +377,7 @@ document.getElementById("doTranscension").disabled=save.ascension<5;
 renderTokenShop();
 renderMarket();
 renderMissions();
+renderRewards();
 }
 const GAMEPASSES=[
 {id:"vip",name:"VIP",icon:"👑",price:250,description:"Double définitivement tes revenus.",boost:2},
