@@ -71,6 +71,7 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <button data-tab="loot">📦 Lootboxes</button>
   <button data-tab="prestigePage">👑 Prestige</button>
   <button data-tab="collection">🏆 Collection</button>
+  <button data-tab="leaderboard">🌍 Leaderboard</button>
 </nav>
 <main>
 <section class="page active" id="business">
@@ -118,6 +119,19 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
 <section class="page" id="collection">
   <div class="section-title"><h2>🏆 Collection exclusive</h2><span class="muted" id="collectionCount">0 objet</span></div>
   <div class="grid" id="collectionList"></div>
+</section>
+<section class="page" id="leaderboard">
+  <div class="section-title"><h2>🌍 Classement des joueurs</h2><span class="muted">Top 100</span></div>
+  <div class="panel">
+    <p class="muted">Choisis ton pseudo et enregistre ton meilleur score sur cet appareil.</p>
+    <div class="actions"><input id="playerName" maxlength="20" placeholder="Ton pseudo" style="flex:1;min-width:150px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><button id="saveScore">Enregistrer mon score</button></div>
+    <p id="myRank" class="muted">Aucun score enregistré.</p>
+  </div>
+  <div class="panel" style="margin-top:12px;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;min-width:440px"><thead><tr style="text-align:left;color:#aaa"><th style="padding:10px">#</th><th style="padding:10px">Joueur</th><th style="padding:10px">XP</th><th style="padding:10px">Prestige</th><th style="padding:10px">Total gagné</th></tr></thead><tbody id="leaderboardRows"></tbody></table>
+    <p id="leaderboardEmpty" class="muted">Aucun score pour le moment.</p>
+  </div>
+  <div class="notice">Ce classement est enregistré uniquement dans le navigateur de cet appareil. Pour un classement mondial partagé entre tous les joueurs, il faudra connecter une base de données en ligne.</div>
 </section>
 </main>
 <footer>ULTIMATE TYCOON · Sauvegarde automatique sur cet appareil<br><button class="secondary" id="adminOpen" style="margin-top:12px">🛠️ Panel admin</button></footer>
@@ -205,6 +219,28 @@ document.getElementById("doPrestige").disabled=save.money<1000000;
 document.getElementById("doAscension").disabled=save.prestige<10;
 document.getElementById("doTranscension").disabled=save.ascension<5;
 }
+function renderLeaderboard(){
+ let rows=[];try{rows=JSON.parse(localStorage.getItem("ultimate-tycoon-leaderboard")||"[]");}catch(e){}
+ rows.sort((a,b)=>b.xp-a.xp||b.prestige-a.prestige||b.totalEarned-a.totalEarned);
+ const body=document.getElementById("leaderboardRows");
+ body.innerHTML=rows.slice(0,100).map((r,i)=>'<tr style="border-top:1px solid #383852"><td style="padding:10px">'+(i+1)+'</td><td style="padding:10px">'+escapeHtml(r.name)+'</td><td style="padding:10px">'+fmt(r.xp)+'</td><td style="padding:10px">'+r.prestige+'</td><td style="padding:10px">'+fmt(r.totalEarned)+'</td></tr>').join("");
+ document.getElementById("leaderboardEmpty").style.display=rows.length?"none":"block";
+ const name=localStorage.getItem("ultimate-tycoon-player-name")||"";
+ document.getElementById("playerName").value=name;
+ const rank=rows.findIndex(r=>r.name===name);
+ document.getElementById("myRank").textContent=rank>=0?"Ton classement enregistré : #"+(rank+1):"Aucun score enregistré.";
+}
+document.getElementById("saveScore").addEventListener("click",function(){
+ const name=document.getElementById("playerName").value.trim().slice(0,20);
+ if(!name){toast("Entre un pseudo avant d'enregistrer.");return;}
+ localStorage.setItem("ultimate-tycoon-player-name",name);
+ let rows=[];try{rows=JSON.parse(localStorage.getItem("ultimate-tycoon-leaderboard")||"[]");}catch(e){}
+ rows=rows.filter(r=>r.name.toLowerCase()!==name.toLowerCase());
+ rows.push({name:name,xp:save.xp,prestige:save.prestige,totalEarned:save.totalEarned});
+ rows.sort((a,b)=>b.xp-a.xp||b.prestige-a.prestige||b.totalEarned-a.totalEarned);
+ localStorage.setItem("ultimate-tycoon-leaderboard",JSON.stringify(rows.slice(0,100)));
+ renderLeaderboard();toast("Score enregistré !");
+});
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 document.addEventListener("click",function(e){
 const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===tab));document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.tab));return;}
@@ -232,7 +268,7 @@ document.getElementById("adminUnlock").addEventListener("click",()=>{BUILDINGS.f
 document.getElementById("adminGift").addEventListener("click",()=>{const item={name:"Noyau admin cosmique",rarity:"Cosmique",income:100000000};save.exclusive.push(item);save.lastLoot=item;persist();render();toast("Objet cosmique ajouté à la collection !");});
 document.getElementById("adminReset").addEventListener("click",()=>{if(!confirm("Effacer définitivement la sauvegarde de cette partie sur cet appareil ?"))return;save=Object.assign({},DEFAULT,{owned:{},exclusive:[]});persist();render();toast("Partie réinitialisée.");});
 const now=Date.now(),elapsed=Math.min(86400,Math.max(0,(now-(save.lastSeen||now))/1000));if(elapsed>5&&income()>0){const bonus=income()*elapsed;save.money+=bonus;save.totalEarned+=bonus;addXP(bonus/100);toast("Bon retour ! +"+fmt(bonus)+" $ gagnés hors ligne.");}
-render();persist();
+render();renderLeaderboard();persist();
 setInterval(function(){const gain=income();save.money+=gain;save.totalEarned+=gain;addXP(gain/100);render();persist();},1000);
 window.addEventListener("beforeunload",persist);
 })();
