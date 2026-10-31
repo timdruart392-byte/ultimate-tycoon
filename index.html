@@ -192,17 +192,26 @@ function multiplier(){return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.
 function income(){let n=0;BUILDINGS.forEach(b=>n+=(save.owned[b.id]||0)*b.income);save.exclusive.forEach(b=>n+=Number(b.income)||0);return n*multiplier();}
 function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display="none",2600);}
 function addXP(n){save.xp+=Math.max(0,Math.floor(n));}
-function currentRankIndex(){let i=0;for(let j=0;j<RANKS.length;j++)if(save.xp>=RANKS[j].min)i=j;return i;}
+function rankAt(i){
+ if(i<RANKS.length)return RANKS[i];
+ const level=i-RANKS.length+1;
+ const icons=["♾️","🌠","🌀","🔱","💠","🌟"];
+ return {name:"Infini "+level,min:15000000*Math.pow(3,level),icon:icons[(level-1)%icons.length]};
+}
+function currentRankIndex(){
+ if(save.xp<15000000){let i=0;for(let j=0;j<RANKS.length;j++)if(save.xp>=RANKS[j].min)i=j;return i;}
+ return RANKS.length-1+Math.floor(Math.log(save.xp/15000000)/Math.log(3));
+}
 function render(){
 document.getElementById("money").textContent=fmt(save.money)+" $";
 document.getElementById("income").textContent=fmt(income())+" $";
 document.getElementById("xp").textContent=fmt(save.xp);
 document.getElementById("prestige").textContent=save.prestige;
-const ri=currentRankIndex(),rank=RANKS[ri],next=RANKS[ri+1];
+const ri=currentRankIndex(),rank=rankAt(ri),next=rankAt(ri+1);
 document.getElementById("rankName").textContent=rank.icon+" "+rank.name;
 document.getElementById("rankProgress").textContent=fmt(save.xp)+" XP";
-document.getElementById("rankNext").textContent=next?"Prochain rang : "+next.name+" ("+fmt(next.min)+" XP)":"Rang maximum atteint !";
-document.getElementById("rankBar").style.width=next?Math.max(0,Math.min(100,(save.xp-rank.min)/(next.min-rank.min)*100))+"%":"100%";
+document.getElementById("rankNext").textContent="Prochain rang : "+next.name+" ("+fmt(next.min)+" XP)";
+document.getElementById("rankBar").style.width=Math.max(0,Math.min(100,(save.xp-rank.min)/(next.min-rank.min)*100))+"%";
 const total=Object.values(save.owned).reduce((a,b)=>a+(Number(b)||0),0)+save.exclusive.length;
 document.getElementById("ownedCount").textContent=total+" bâtiment"+(total>1?"s":"");
 document.getElementById("buildingList").innerHTML=BUILDINGS.map(b=>{const count=save.owned[b.id]||0;return '<article class="building"><div class="emoji">'+b.icon+'</div><div class="details"><h3>'+b.name+'</h3><p>Possédés : '+count+'</p><p>Revenu : '+fmt(b.income*multiplier())+' $/s chacun</p></div><button class="buy" data-buy="'+b.id+'" '+(save.money<b.cost?'disabled':'')+'>'+fmt(b.cost)+' $</button></article>';}).join("");
