@@ -170,13 +170,24 @@ const BUILDINGS=[
 {id:"rocket",name:"Base spatiale",cost:10000000,income:300000,icon:"🚀"},
 {id:"planet",name:"Planète minière",cost:100000000,income:2500000,icon:"🪐"}
 ];
-const RANKS=[
-{name:"Débutant",min:0,icon:"🌱"},{name:"Bronze",min:1000,icon:"🥉"},
-{name:"Argent",min:5000,icon:"🥈"},{name:"Or",min:15000,icon:"🥇"},
-{name:"Diamant",min:50000,icon:"💎"},{name:"Maître",min:150000,icon:"🔮"},
-{name:"Grand Maître",min:500000,icon:"👑"},{name:"Légende",min:1500000,icon:"🌌"},
-{name:"Divin",min:5000000,icon:"⚡"},{name:"Ultime",min:15000000,icon:"🔥"}
+const RANK_NAMES=[
+"Débutant","Bronze","Argent","Or","Diamant","Maître","Grand Maître","Légende","Divin","Ultime",
+"Champion","Héros","Mythique","Immortel","Céleste","Souverain","Titan","Colosse","Phénix","Astral",
+"Stellaire","Galactique","Universel","Cosmique","Nébuleux","Interstellaire","Quantique","Dimensionnel","Éternel","Suprême",
+"Ancien","Primordial"," transcendant","Omnipotent","Omniscient","Oracle","Archonte","Demi-Dieu","Dieu","Dieu Suprême",
+"Roi des Mondes","Empereur Stellaire","Gardien Cosmique","Seigneur du Temps","Maître des Dimensions","Créateur","Architecte Universel","Force Originelle","Entité Absolue","L'Inconcevable",
+"Élu des Étoiles","Conquérant Galactique","Protecteur des Univers","Roi de l'Infini","Maître du Multivers","Voyageur Éternel","Source de Vie","Cœur Cosmique","Légende Vivante","Mythe Absolu",
+"Parangon","Exalté","Sublime","Prodige","Prodige Suprême","Ascendant","Éveillé","Illuminé","Étoile Éternelle","Flamme Primordiale",
+"Seigneur Astral","Empereur du Néant","Gardien de l'Éternité","Maître du Chaos","Maître de l'Ordre","Équilibre Absolu","Architecte du Temps","Tisseur de Réalités","Façonneur de Mondes","Réalité Vivante",
+"Conscience Cosmique","Esprit Universel","Volonté Suprême","Pouvoir Absolu","Infini Maîtrisé","Au-delà des Mondes","Au-delà du Temps","Au-delà de l'Espace","Au-delà du Multivers","Origine de Tout",
+"Sommet Absolu","L'Inégalé","L'Inatteignable","L'Indépassable","Éternité Suprême","Alpha","Oméga","Alpha et Oméga","Absolu Éternel","Éternel Suprême"
 ];
+const RANK_ICONS=["🌱","🥉","🥈","🥇","💎","🔮","👑","🌌","⚡","🔥","🏆","🦸","✨","♾️"];
+const RANKS=RANK_NAMES.map((name,i)=>({
+ name:name,
+ min:i===0?0:i===1?1000:i===2?5000:i===3?15000:i===4?50000:i===5?150000:i===6?500000:i===7?1500000:i===8?5000000:i===9?15000000:15000000*Math.pow(1.35,i-9),
+ icon:RANK_ICONS[i%RANK_ICONS.length]
+}));
 const BOXES=[
 {id:"normal",name:"Lootbox normale",price:10000,currency:"money",icon:"📦",odds:[["Commun",55,100],["Rare",28,1000],["Épique",12,10000],["Légendaire",4,100000],["Cosmique",1,1000000]]},
 {id:"epic",name:"Lootbox épique",price:10,currency:"prestige",icon:"💜",odds:[["Rare",35,5000],["Épique",40,25000],["Légendaire",20,250000],["Cosmique",5,2500000]]},
@@ -196,11 +207,12 @@ function rankAt(i){
  if(i<RANKS.length)return RANKS[i];
  const level=i-RANKS.length+1;
  const icons=["♾️","🌠","🌀","🔱","💠","🌟"];
- return {name:"Infini "+level,min:15000000*Math.pow(3,level),icon:icons[(level-1)%icons.length]};
+ return {name:"Infini "+level,min:RANKS[RANKS.length-1].min*Math.pow(3,level),icon:icons[(level-1)%icons.length]};
 }
 function currentRankIndex(){
- if(save.xp<15000000){let i=0;for(let j=0;j<RANKS.length;j++)if(save.xp>=RANKS[j].min)i=j;return i;}
- return RANKS.length-1+Math.floor(Math.log(save.xp/15000000)/Math.log(3));
+ const last=RANKS.length-1;
+ if(save.xp<RANKS[last].min){let i=0;for(let j=0;j<RANKS.length;j++)if(save.xp>=RANKS[j].min)i=j;return i;}
+ return last+Math.floor(Math.log(save.xp/RANKS[last].min)/Math.log(3));
 }
 function render(){
 document.getElementById("money").textContent=fmt(save.money)+" $";
