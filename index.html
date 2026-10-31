@@ -75,6 +75,7 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <button data-tab="leaderboard">🌍 Leaderboard</button>
   <button data-tab="tokenShop">🪙 Boutique</button>
   <button data-tab="missions">🎯 Missions</button>
+  <button data-tab="market">₿ Bourse crypto</button>
 </nav>
 <main>
 <section class="page active" id="business">
@@ -150,6 +151,15 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
 <div class="shop-section"><h2>🎟️ Codes cadeaux</h2>
 <div class="section-title"><h2>🎟️ Codes cadeaux</h2></div><div class="panel"><p class="muted">Chaque code ne peut être utilisé qu'une fois.</p>
 <div class="actions"><input id="giftCode" maxlength="30" placeholder="Entre ton code ici" style="flex:1;min-width:150px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><button id="redeemCode">Valider le code</button></div><p class="muted" id="codeMessage">Essaie le code HALLOWEEN 🎃</p></div></section>
+
+<section class="page" id="market">
+  <div class="section-title"><h2>₿ Bourse crypto virtuelle</h2><span class="muted">Marché simulé · monnaie du jeu</span></div>
+  <div class="notice">Les cours évoluent automatiquement. Achète et revends des cryptos avec tes dollars virtuels. Les gains et pertes restent dans ta sauvegarde : aucune vraie cryptomonnaie ni aucun paiement.</div>
+  <div class="panel"><h3>💼 Ton portefeuille</h3><p>Valeur actuelle : <strong id="marketValue">0 $</strong></p><p>Investi : <strong id="marketInvested">0 $</strong></p><p>Plus-value : <strong id="marketProfit">0 $</strong></p></div>
+  <div class="grid" id="marketList" style="margin-top:12px"></div>
+  <div class="panel" style="margin-top:12px"><h3>📊 Historique récent</h3><div id="marketHistory" class="muted">Le marché vient d'ouvrir.</div></div>
+</section>
+
 </main>
 <footer>ULTIMATE TYCOON · Sauvegarde automatique sur cet appareil<br><button class="secondary" id="adminOpen" style="margin-top:12px">🛠️ Panel admin</button></footer>
 <div id="adminPanel" class="panel" style="display:none;margin-top:18px">
@@ -234,7 +244,7 @@ const BOXES=[
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
 ];
-const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false}};
+const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),market:{prices:{btc:50000,eth:2500,sol:120},holdings:{btc:0,eth:0,sol:0},invested:{btc:0,eth:0,sol:0},history:[]},redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false}};
 let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[],daily:Object.assign({},DEFAULT.daily,v&&v.daily||{})});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
@@ -262,6 +272,50 @@ function dailyMissions(){return [
 {id:"box",title:"📦 Collectionneur",description:"Ouvre 1 lootbox",progress:Math.min(1,save.daily.boxes),goal:1,unit:"lootbox"}
 ];}
 function renderMissions(){ensureDaily();const missions=dailyMissions();document.getElementById("missionDate").textContent="Jour : "+save.daily.date;document.getElementById("dailyMissionList").innerHTML=missions.map(m=>{const done=m.progress>=m.goal;return '<article class="panel"><h3>'+m.title+'</h3><p class="muted">'+m.description+'</p><div class="progress"><div style="width:'+Math.min(100,m.progress/m.goal*100)+'%"></div></div><p><strong>'+fmt(m.progress)+' / '+fmt(m.goal)+'</strong> '+m.unit+'</p><span class="muted">'+(done?'✅ Terminée':'⏳ En cours')+'</span></article>';}).join("");const all=missions.every(m=>m.progress>=m.goal);document.getElementById("dailyBonusText").textContent=all?(save.daily.claimed?"Bonus déjà récupéré aujourd'hui !":"Les trois missions sont terminées : récupère 500 jetons, 100 000 $ et 5 000 XP !"):"Termine les trois missions pour récupérer 500 jetons, 100 000 $ et 5 000 XP.";document.getElementById("claimDailyBonus").disabled=!all||save.daily.claimed;document.getElementById("claimDailyBonus").textContent=save.daily.claimed?"Bonus récupéré":"Récupérer le bonus";}
+
+const MARKET_ASSETS=[{id:"btc",name:"Bitcoin",symbol:"BTC",icon:"₿",start:50000},{id:"eth",name:"Ethereum",symbol:"ETH",icon:"◆",start:2500},{id:"sol",name:"Solana",symbol:"SOL",icon:"◎",start:120}];
+function ensureMarket(){
+ if(!save.market||typeof save.market!=="object")save.market={};
+ const m=save.market;
+ if(!m.prices)m.prices={};if(!m.holdings)m.holdings={};if(!m.invested)m.invested={};if(!Array.isArray(m.history))m.history=[];
+ MARKET_ASSETS.forEach(a=>{if(!(Number(m.prices[a.id])>0))m.prices[a.id]=a.start;if(!Number.isFinite(Number(m.holdings[a.id])))m.holdings[a.id]=0;if(!Number.isFinite(Number(m.invested[a.id])))m.invested[a.id]=0;});
+}
+function renderMarket(){
+ const root=document.getElementById("marketList");if(!root)return;ensureMarket();
+ let total=0,invested=0;
+ root.innerHTML=MARKET_ASSETS.map(a=>{
+  const price=save.market.prices[a.id],qty=save.market.holdings[a.id],cost=save.market.invested[a.id],value=qty*price;
+  total+=value;invested+=cost;
+  return '<article class="panel"><div class="section-title"><h2>'+a.icon+' '+a.name+'</h2><strong>'+a.symbol+'</strong></div><p>Cours : <strong>'+fmt(price)+' $</strong></p><p>Variation : <strong>'+((marketChanges[a.id]||0)>=0?"+":"")+((marketChanges[a.id]||0)*100).toFixed(2)+' %</strong></p><p>Possédé : '+qty.toFixed(6)+' '+a.symbol+'</p><p>Valeur : '+fmt(value)+' $</p><div class="actions"><button data-market-buy="'+a.id+'">Acheter 1</button><button class="secondary" data-market-sell="'+a.id+'" '+(qty<=0?'disabled':'')+'>Vendre 1</button><button class="gold" data-market-buymax="'+a.id+'">Acheter au maximum</button></div></article>';
+ }).join("");
+ document.getElementById("marketValue").textContent=fmt(total)+" $";
+ document.getElementById("marketInvested").textContent=fmt(invested)+" $";
+ const profit=total-invested,el=document.getElementById("marketProfit");el.textContent=(profit>=0?"+":"")+fmt(profit)+" $";el.style.color=profit>=0?"#22c55e":"#f87171";
+ const hist=document.getElementById("marketHistory");hist.textContent=save.market.history.length?save.market.history.slice(-5).reverse().join(" · "):"Le marché vient d'ouvrir.";
+}
+const marketChanges={btc:0,eth:0,sol:0};
+function updateMarket(){
+ ensureMarket();
+ MARKET_ASSETS.forEach(a=>{const change=(Math.random()-0.49)*0.035;marketChanges[a.id]=change;save.market.prices[a.id]=Math.max(a.start*0.05,save.market.prices[a.id]*(1+change));});
+ persist();
+ if(document.getElementById("market")?.classList.contains("active"))renderMarket();
+}
+function marketTrade(id,side,max){
+ ensureMarket();const a=MARKET_ASSETS.find(x=>x.id===id);if(!a)return;
+ const price=save.market.prices[id];let qty=max?Math.min(save.money/price,1000000):1;
+ if(side==="buy"){
+  if(qty<=0||save.money+1e-9<qty*price){toast("Pas assez d'argent virtuel.");return;}
+  const cost=qty*price;save.money-=cost;save.market.holdings[id]+=qty;save.market.invested[id]+=cost;
+ }else{
+  qty=Math.min(1,save.market.holdings[id]);if(qty<=0)return;
+  const proceeds=qty*price,oldQty=save.market.holdings[id],avg=oldQty>0?save.market.invested[id]/oldQty:0;
+  save.money+=proceeds;save.market.holdings[id]-=qty;save.market.invested[id]=Math.max(0,save.market.invested[id]-avg*qty);
+ }
+ const label=(side==="buy"?"Achat":"Vente")+" "+qty.toFixed(4)+" "+a.symbol+" à "+fmt(price)+" $";
+ save.market.history.push(label);save.market.history=save.market.history.slice(-20);
+ persist();render();renderMarket();toast(side==="buy"?"Crypto achetée !":"Crypto vendue !");
+}
+
 function render(){
 ensureDaily();
 document.getElementById("money").textContent=fmt(save.money)+" $";
@@ -290,6 +344,7 @@ document.getElementById("doPrestige").disabled=save.money<1000000;
 document.getElementById("doAscension").disabled=save.prestige<10;
 document.getElementById("doTranscension").disabled=save.ascension<5;
 renderTokenShop();
+renderMarket();
 renderMissions();
 }
 const GAMEPASSES=[
@@ -366,6 +421,11 @@ document.getElementById("saveScore").addEventListener("click",function(){
 });
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 document.addEventListener("click",function(e){
+
+const marketBuy=e.target.closest("[data-market-buy]");if(marketBuy){marketTrade(marketBuy.dataset.marketBuy,"buy",false);return;}
+const marketSell=e.target.closest("[data-market-sell]");if(marketSell){marketTrade(marketSell.dataset.marketSell,"sell",false);return;}
+const marketMax=e.target.closest("[data-market-buymax]");if(marketMax){marketTrade(marketMax.dataset.marketBuymax,"buy",true);return;}
+
 const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===tab));document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.tab));return;}
 const buy=e.target.closest("[data-buy]");if(buy){const b=BUILDINGS.find(x=>x.id===buy.dataset.buy);if(!b||save.money<b.cost)return;save.money-=b.cost;save.owned[b.id]=(save.owned[b.id]||0)+1;ensureDaily();save.daily.buildings++;addXP(Math.max(5,Math.floor(b.cost/100)));persist();render();return;}
 const boxButton=e.target.closest("[data-box]");if(boxButton){openBox(boxButton.dataset.box);return;}
@@ -395,6 +455,7 @@ document.getElementById("adminGift").addEventListener("click",()=>{const item={n
 document.getElementById("adminReset").addEventListener("click",()=>{if(!confirm("Effacer définitivement la sauvegarde de cette partie sur cet appareil ?"))return;save=Object.assign({},DEFAULT,{owned:{},exclusive:[]});persist();render();toast("Partie réinitialisée.");});
 const now=Date.now(),elapsed=Math.min(86400,Math.max(0,(now-(save.lastSeen||now))/1000));if(elapsed>5&&income()>0){const bonus=income()*elapsed;ensureDaily();save.daily.earned+=bonus;save.money+=bonus;save.totalEarned+=bonus;addXP(bonus/100);toast("Bon retour ! +"+fmt(bonus)+" $ gagnés hors ligne.");}
 render();renderLeaderboard();accrueTokens();persist();
+setInterval(updateMarket,5000);
 setInterval(function(){accrueTokens();const gain=income();ensureDaily();save.daily.earned+=gain;save.money+=gain;save.totalEarned+=gain;addXP(gain/100);render();persist();},1000);
 window.addEventListener("beforeunload",persist);
 })();
