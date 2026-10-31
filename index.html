@@ -75,7 +75,6 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <button data-tab="leaderboard">🌍 Leaderboard</button>
   <button data-tab="tokenShop">🪙 Boutique</button>
   <button data-tab="missions">🎯 Missions</button>
-  <button data-tab="market">📈 Bourse crypto</button>
 </nav>
 <main>
 <section class="page active" id="business">
@@ -136,13 +135,6 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
     <p id="leaderboardEmpty" class="muted">Aucun score pour le moment.</p>
   </div>
   <div class="notice">Ce classement est enregistré uniquement dans le navigateur de cet appareil. Pour un classement mondial partagé entre tous les joueurs, il faudra connecter une base de données en ligne.</div>
-</section>
-<section class="page" id="market">
-  <div class="section-title"><h2>📈 Bourse crypto</h2><span class="muted">Marché virtuel · prix variables</span></div>
-  <div class="notice">Achète et revends des cryptomonnaies fictives avec tes dollars du jeu. Les cours évoluent toutes les 5 secondes : tu peux gagner… ou perdre. Aucun argent réel n’est utilisé.</div>
-  <div class="panel" style="margin-bottom:12px"><div class="section-title"><h3>💼 Ton portefeuille</h3><strong id="marketValue">0 $</strong></div><p class="muted" id="marketProfit">Plus-value / moins-value : 0 $</p><label>Quantité à trader <input id="marketQty" type="number" min="0.001" step="0.001" value="0.001" style="width:130px;margin-left:8px;padding:9px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"></label></div>
-  <div class="grid" id="marketList"></div>
-  <p class="muted" style="font-size:12px;margin-top:12px">Simulation aléatoire : les variations ne prédisent pas les vrais marchés et ne correspondent à aucune cryptomonnaie réelle.</p>
 </section>
 <section class="page" id="missions">
   <div class="section-title"><h2>🎯 Missions quotidiennes</h2><span class="muted" id="missionDate"></span></div>
@@ -242,7 +234,7 @@ const BOXES=[
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
 ];
-const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),market:{prices:{btc:50000,eth:3000,sol:150},holdings:{},invested:{}},redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false}};
+const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false}};
 let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[],daily:Object.assign({},DEFAULT.daily,v&&v.daily||{})});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
@@ -269,10 +261,6 @@ function dailyMissions(){return [
 {id:"build",title:"🏗️ Constructeur",description:"Achète 3 bâtiments",progress:Math.min(3,save.daily.buildings),goal:3,unit:"bâtiments"},
 {id:"box",title:"📦 Collectionneur",description:"Ouvre 1 lootbox",progress:Math.min(1,save.daily.boxes),goal:1,unit:"lootbox"}
 ];}
-function marketAssets(){return [{id:"btc",name:"Bitcoin",symbol:"BTC",icon:"₿"},{id:"eth",name:"Ethereum",symbol:"ETH",icon:"◆"},{id:"sol",name:"Solana",symbol:"SOL",icon:"◎"}];}
-function marketValue(){return marketAssets().reduce((n,a)=>n+(Number(save.market.holdings[a.id])||0)*(Number(save.market.prices[a.id])||0),0);}
-function renderMarket(){if(!save.market)save.market={prices:{btc:50000,eth:3000,sol:150},holdings:{},invested:{}};const value=marketValue(),cost=Object.values(save.market.invested).reduce((n,v)=>n+(Number(v)||0),0);const profit=value-cost;document.getElementById("marketValue").textContent=fmt(value)+" $";document.getElementById("marketProfit").textContent=(profit>=0?"Plus-value : +":"Moins-value : ")+fmt(profit)+" $";document.getElementById("marketProfit").style.color=profit>=0?"#22c55e":"#f87171";document.getElementById("marketList").innerHTML=marketAssets().map(a=>{const price=save.market.prices[a.id],qty=Number(save.market.holdings[a.id])||0;return '<article class="panel"><div class="section-title"><h3>'+a.icon+" "+a.name+'</h3><strong>'+fmt(price)+" $</strong></div><p class="muted">Symbole : "+a.symbol+" · Détenu : "+qty.toFixed(3)+"</p><div class="actions"><button class="green" data-market-buy=\""+a.id+"\">Acheter</button><button class="danger" data-market-sell=\""+a.id+"\">Vendre</button></div></article>';}).join("");}
-function marketTick(){if(!save.market)save.market={prices:{btc:50000,eth:3000,sol:150},holdings:{},invested:{}};marketAssets().forEach(a=>{const old=Number(save.market.prices[a.id])||1;const change=(Math.random()-.49)*.08;save.market.prices[a.id]=Math.max(old*.1,old*(1+change));});renderMarket();persist();}
 function renderMissions(){ensureDaily();const missions=dailyMissions();document.getElementById("missionDate").textContent="Jour : "+save.daily.date;document.getElementById("dailyMissionList").innerHTML=missions.map(m=>{const done=m.progress>=m.goal;return '<article class="panel"><h3>'+m.title+'</h3><p class="muted">'+m.description+'</p><div class="progress"><div style="width:'+Math.min(100,m.progress/m.goal*100)+'%"></div></div><p><strong>'+fmt(m.progress)+' / '+fmt(m.goal)+'</strong> '+m.unit+'</p><span class="muted">'+(done?'✅ Terminée':'⏳ En cours')+'</span></article>';}).join("");const all=missions.every(m=>m.progress>=m.goal);document.getElementById("dailyBonusText").textContent=all?(save.daily.claimed?"Bonus déjà récupéré aujourd'hui !":"Les trois missions sont terminées : récupère 500 jetons, 100 000 $ et 5 000 XP !"):"Termine les trois missions pour récupérer 500 jetons, 100 000 $ et 5 000 XP.";document.getElementById("claimDailyBonus").disabled=!all||save.daily.claimed;document.getElementById("claimDailyBonus").textContent=save.daily.claimed?"Bonus récupéré":"Récupérer le bonus";}
 function render(){
 ensureDaily();
@@ -303,7 +291,6 @@ document.getElementById("doAscension").disabled=save.prestige<10;
 document.getElementById("doTranscension").disabled=save.ascension<5;
 renderTokenShop();
 renderMissions();
-renderMarket();
 }
 const GAMEPASSES=[
 {id:"vip",name:"VIP",icon:"👑",price:250,description:"Double définitivement tes revenus.",boost:2},
@@ -383,13 +370,10 @@ const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tab
 const buy=e.target.closest("[data-buy]");if(buy){const b=BUILDINGS.find(x=>x.id===buy.dataset.buy);if(!b||save.money<b.cost)return;save.money-=b.cost;save.owned[b.id]=(save.owned[b.id]||0)+1;ensureDaily();save.daily.buildings++;addXP(Math.max(5,Math.floor(b.cost/100)));persist();render();return;}
 const boxButton=e.target.closest("[data-box]");if(boxButton){openBox(boxButton.dataset.box);return;}
 const passButton=e.target.closest("[data-pass]");if(passButton){const p=GAMEPASSES.find(x=>x.id===passButton.dataset.pass);if(!p||save.tokens<p.price||save.passes[p.id])return;save.tokens-=p.price;save.passes[p.id]=true;persist();render();toast(p.name+" activé définitivement !");return;}
-const marketBuy=e.target.closest("[data-market-buy]");if(marketBuy){tradeMarket(marketBuy.dataset.marketBuy,"buy");return;}
-const marketSell=e.target.closest("[data-market-sell]");if(marketSell){tradeMarket(marketSell.dataset.marketSell,"sell");return;}
 const itemButton=e.target.closest("[data-token-item]");if(itemButton){const p=TOKEN_ITEMS.find(x=>x.id===itemButton.dataset.tokenItem);if(!p||save.tokens<p.price)return;save.tokens-=p.price;if(p.kind==="boost"){save.tokenBoostUntil=Math.max(Date.now(),Number(save.tokenBoostUntil)||0)+p.duration;save.tokenBoostAmount=p.amount;}if(p.kind==="cash")save.money+=p.amount;if(p.kind==="xp")addXP(p.amount);if(p.kind==="tokens")save.tokens+=p.amount;if(p.kind==="prestige")save.prestige+=p.amount;if(p.kind==="ascension")save.ascension+=p.amount;if(p.kind==="relic"){const relic={name:p.name,rarity:"Exclusif",income:p.amount};save.exclusive.push(relic);save.lastLoot=relic;}if(p.kind==="lucky"||p.kind==="megaLucky"){const scale=p.kind==="lucky"?1:10;const prize=Math.floor((Math.random()<.5?10000:1000)*scale);if(Math.random()<.5)save.money+=prize;else save.tokens+=Math.floor(prize/100);toast("Coffre ouvert : récompense surprise !");}persist();render();toast(p.name+" acheté !");return;}
 });
 document.getElementById("claimDailyBonus").addEventListener("click",function(){ensureDaily();if(save.daily.claimed||!dailyMissions().every(m=>m.progress>=m.goal))return;save.daily.claimed=true;save.tokens+=500;save.money+=100000;addXP(5000);persist();render();toast("Bonus quotidien récupéré : +500 jetons !");});
 document.getElementById("buyUpgrade").addEventListener("click",function(){const p=Math.floor(5000*Math.pow(4,save.upgrades));if(save.money<p)return;save.money-=p;save.upgrades++;addXP(100);persist();render();toast("Amélioration achetée !");});
-function tradeMarket(id,side){const asset=marketAssets().find(a=>a.id===id);if(!asset)return;const qty=Math.max(0,Number(document.getElementById("marketQty").value)||0),price=save.market.prices[id],held=Number(save.market.holdings[id])||0;if(!qty||!Number.isFinite(qty)){toast("Entre une quantité valide.");return;}const total=qty*price;if(side==="buy"){if(save.money<total){toast("Pas assez d’argent pour cet achat.");return;}save.money-=total;save.market.holdings[id]=held+qty;save.market.invested[id]=(Number(save.market.invested[id])||0)+total;toast("Achat de "+qty.toFixed(3)+" "+asset.symbol+" effectué.");}else{if(held+1e-9<qty){toast("Tu ne possèdes pas assez de "+asset.symbol+".");return;}const avg=(Number(save.market.invested[id])||0)/Math.max(held,1e-9),returned=total;save.market.holdings[id]=Math.max(0,held-qty);save.market.invested[id]=Math.max(0,(Number(save.market.invested[id])||0)-avg*qty);save.money+=returned;toast("Vente effectuée : "+fmt(returned)+" $.");}persist();render();}
 function openBox(id){const b=BOXES.find(x=>x.id===id);if(!b||save[b.currency]<b.price)return;ensureDaily();save.daily.boxes++;save[b.currency]-=b.price;let rarity;if(save.pity>=9&&b.odds.some(x=>x[0]==="Légendaire"||x[0]==="Cosmique")){rarity=b.odds.some(x=>x[0]==="Cosmique")?"Cosmique":"Légendaire";}else{let roll=Math.random()*100,total=0;rarity=b.odds[0][0];for(const o of b.odds){total+=o[1];if(roll<total){rarity=o[0];break;}}}const prize=b.odds.find(x=>x[0]===rarity)||b.odds[0];const names=["Tour infinie","Réacteur quantique","Palais céleste","Mine dimensionnelle","Noyau galactique"];const item={name:rarity+" "+names[Math.floor(Math.random()*names.length)],rarity:rarity,income:prize[2]};save.exclusive.push(item);save.lastLoot=item;save.pity=(rarity==="Légendaire"||rarity==="Cosmique")?0:save.pity+1;addXP(250);persist();render();toast("Tu as obtenu : "+item.name+" !");}
 document.getElementById("doPrestige").addEventListener("click",function(){if(save.money<1000000)return;if(!confirm("Faire un prestige ? Ton argent et tes bâtiments classiques seront réinitialisés."))return;save.money=100;save.owned={};save.prestige++;addXP(2000);persist();render();toast("Prestige effectué ! Multiplicateur augmenté.");});
 document.getElementById("doAscension").addEventListener("click",function(){if(save.prestige<10)return;if(!confirm("Effectuer une ascension ?"))return;save.money=100;save.owned={};save.prestige=0;save.ascension++;addXP(10000);persist();render();toast("Ascension effectuée !");});
@@ -412,7 +396,6 @@ document.getElementById("adminReset").addEventListener("click",()=>{if(!confirm(
 const now=Date.now(),elapsed=Math.min(86400,Math.max(0,(now-(save.lastSeen||now))/1000));if(elapsed>5&&income()>0){const bonus=income()*elapsed;ensureDaily();save.daily.earned+=bonus;save.money+=bonus;save.totalEarned+=bonus;addXP(bonus/100);toast("Bon retour ! +"+fmt(bonus)+" $ gagnés hors ligne.");}
 render();renderLeaderboard();accrueTokens();persist();
 setInterval(function(){accrueTokens();const gain=income();ensureDaily();save.daily.earned+=gain;save.money+=gain;save.totalEarned+=gain;addXP(gain/100);render();persist();},1000);
-setInterval(marketTick,5000);
 window.addEventListener("beforeunload",persist);
 })();
 </script>
