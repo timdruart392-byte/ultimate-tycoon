@@ -77,6 +77,7 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <button data-tab="missions">🎯 Missions</button>
   <button data-tab="market">₿ Bourse crypto</button>
   <button data-tab="rewards">🎡 Roue & succès</button>
+  <button data-tab="research">🧪 Recherche</button>
 </nav>
 <main>
 <section class="page active" id="business">
@@ -153,6 +154,13 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
 <div class="section-title"><h2>🎟️ Codes cadeaux</h2></div><div class="panel"><p class="muted">Chaque code ne peut être utilisé qu'une fois.</p>
 <div class="actions"><input id="giftCode" maxlength="30" placeholder="Entre ton code ici" style="flex:1;min-width:150px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><button id="redeemCode">Valider le code</button></div><p class="muted" id="codeMessage">Essaie le code HALLOWEEN 🎃</p></div></section>
 
+<section class="page" id="research">
+  <div class="section-title"><h2>🧪 Centre de recherche</h2><span class="muted">Améliorations permanentes</span></div>
+  <div class="notice">Investis dans la recherche pour améliorer durablement ton empire. Les niveaux sont conservés lors des prestiges.</div>
+  <div class="grid" id="researchList"></div>
+  <div class="section-title"><h2>📊 Statistiques de ta partie</h2></div>
+  <div class="grid" id="careerStats"></div>
+</section>
 <section class="page" id="rewards">
   <div class="section-title"><h2>🎡 Roue de la fortune</h2><span class="muted" id="wheelStatus">Disponible chaque jour</span></div>
   <div class="panel"><p class="muted">Tourne gratuitement une fois par jour pour gagner une récompense virtuelle.</p><div class="actions"><button class="gold" id="spinWheel">🎡 Tourner la roue</button><strong id="wheelResult" class="muted">Bonne chance !</strong></div></div>
@@ -254,12 +262,12 @@ const BOXES=[
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
 ];
-const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),market:{prices:{btc:50000,eth:2500,sol:120},holdings:{btc:0,eth:0,sol:0},invested:{btc:0,eth:0,sol:0},history:[]},redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false},wheelDate:"",achievements:{}};
+const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),market:{prices:{btc:50000,eth:2500,sol:120},holdings:{btc:0,eth:0,sol:0},invested:{btc:0,eth:0,sol:0},history:[]},redeemedCodes:[],passes:{},tokenBoostUntil:0,daily:{date:"",buildings:0,boxes:0,earned:0,claimed:false},wheelDate:"",achievements:{},research:{}};
 let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[],daily:Object.assign({},DEFAULT.daily,v&&v.daily||{})});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
 function fmt(n){if(!Number.isFinite(n))return "∞";if(Math.abs(n)<1000)return Math.floor(n).toLocaleString("fr-FR");const units=["K","M","B","T","Qa","Qi","Sx","Sp","Oc","No"];let x=Math.abs(n),i=-1;while(x>=1000&&i<units.length-1){x/=1000;i++;}return (n<0?"-":"")+x.toFixed(2)+units[i];}
-function multiplier(){const passBoost=GAMEPASSES.reduce((v,p)=>save.passes&&save.passes[p.id]?Math.max(v,p.boost):v,1);const timedBoost=save.tokenBoostUntil>Date.now()?(Number(save.tokenBoostAmount)||2):1;return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1)*passBoost*timedBoost;}
+function multiplier(){const researchBoost=1+Object.values(save.research||{}).reduce((a,b)=>a+(Number(b)||0),0)*0.1;const passBoost=GAMEPASSES.reduce((v,p)=>save.passes&&save.passes[p.id]?Math.max(v,p.boost):v,1);const timedBoost=save.tokenBoostUntil>Date.now()?(Number(save.tokenBoostAmount)||2):1;return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1)*passBoost*timedBoost*researchBoost;}
 function accrueTokens(){const now=Date.now(),last=Number(save.lastTokenAt)||now,intervals=Math.floor(Math.max(0,now-last)/10000),levelMultiplier=Math.max(1,currentRankIndex()+1),gained=intervals*100*levelMultiplier;if(gained>0){save.tokens=(Number(save.tokens)||0)+gained;save.lastTokenAt=last+intervals*10000;persist();}document.getElementById("tokens").textContent=fmt(save.tokens||0);const bal=document.getElementById("shopBalance");if(bal)bal.textContent=fmt(save.tokens||0)+" jetons";}
 function income(){let n=0;BUILDINGS.forEach(b=>n+=(save.owned[b.id]||0)*b.income);save.exclusive.forEach(b=>n+=Number(b.income)||0);return n*multiplier();}
 function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display="none",2600);}
@@ -347,6 +355,23 @@ function createMarketCoin(){
  document.getElementById("newCoinName").value="";document.getElementById("newCoinSymbol").value="";document.getElementById("newCoinPrice").value="100";msg.textContent=name+" est maintenant cotée !";persist();render();renderMarket();toast("Nouvelle crypto créée !");
 }
 
+const RESEARCH=[
+{id:"automation",name:"🤖 Automatisation",description:"+10 % de revenus par niveau",base:25000},
+{id:"marketing",name:"📣 Marketing",description:"+10 % de revenus par niveau",base:100000},
+{id:"engineering",name:"⚙️ Ingénierie",description:"+10 % de revenus par niveau",base:500000},
+{id:"science",name:"🔬 Science avancée",description:"+10 % de revenus par niveau",base:2500000},
+{id:"cosmos",name:"🌌 Technologie cosmique",description:"+10 % de revenus par niveau",base:10000000}
+];
+function renderResearch(){
+ const root=document.getElementById("researchList");if(!root)return;
+ root.innerHTML=RESEARCH.map(r=>{const level=Number(save.research[r.id])||0,price=Math.floor(r.base*Math.pow(3,level));return '<article class="panel"><h3>'+r.name+'</h3><p class="muted">'+r.description+'</p><p>Niveau : <strong>'+level+'</strong></p><p>Prix du prochain niveau : <strong>'+fmt(price)+' $</strong></p><button data-research="'+r.id+'" '+(save.money<price?'disabled':'')+'>Améliorer</button></article>';}).join("");
+ const total=Object.values(save.owned).reduce((a,b)=>a+(Number(b)||0),0);
+ document.getElementById("careerStats").innerHTML=[
+ ["💰 Argent gagné au total",fmt(save.totalEarned)+" $"],["🏢 Bâtiments possédés",fmt(total)],["✨ Objets de collection",fmt(save.exclusive.length)],
+ ["👑 Prestiges",fmt(save.prestige)],["🌌 Ascensions",fmt(save.ascension)],["🔥 Transcendances",fmt(save.transcension)],
+ ["🧪 Niveaux de recherche",fmt(Object.values(save.research||{}).reduce((a,b)=>a+(Number(b)||0),0))],["📈 Multiplicateur global","x"+fmt(multiplier())]
+ ].map(x=>'<article class="panel"><p class="muted">'+x[0]+'</p><h3>'+x[1]+'</h3></article>').join("");
+}
 function render(){
 ensureDaily();
 document.getElementById("money").textContent=fmt(save.money)+" $";
@@ -361,7 +386,7 @@ document.getElementById("rankNext").textContent="Prochain rang : "+next.name+" (
 document.getElementById("rankBar").style.width=Math.max(0,Math.min(100,(save.xp-rank.min)/(next.min-rank.min)*100))+"%";
 const total=Object.values(save.owned).reduce((a,b)=>a+(Number(b)||0),0)+save.exclusive.length;
 document.getElementById("ownedCount").textContent=total+" bâtiment"+(total>1?"s":"");
-document.getElementById("buildingList").innerHTML=BUILDINGS.map(b=>{const count=save.owned[b.id]||0;return '<article class="building"><div class="emoji">'+b.icon+'</div><div class="details"><h3>'+b.name+'</h3><p>Possédés : '+count+'</p><p>Revenu : '+fmt(b.income*multiplier())+' $/s chacun</p></div><button class="buy" data-buy="'+b.id+'" '+(save.money<b.cost?'disabled':'')+'>'+fmt(b.cost)+' $</button></article>';}).join("");
+document.getElementById("buildingList").innerHTML=BUILDINGS.map(b=>{const count=save.owned[b.id]||0;return '<article class="building"><div class="emoji">'+b.icon+'</div><div class="details"><h3>'+b.name+'</h3><p>Possédés : '+count+'</p><p>Revenu : '+fmt(b.income*multiplier())+' $/s chacun</p></div><div class="actions"><button class="buy" data-buy="'+b.id+'" '+(save.money<b.cost?'disabled':'')+''+fmt(b.cost)+' $</button><button class="secondary" data-buy10="'+b.id+'" '+(save.money<b.cost*10?'disabled':'')+'>Acheter x10</button></div></article>';}).join("");
 const price=Math.floor(5000*Math.pow(4,save.upgrades));
 document.getElementById("upgradeCount").textContent=save.upgrades;
 document.getElementById("multiplier").textContent="x"+fmt(multiplier());
@@ -378,6 +403,7 @@ renderTokenShop();
 renderMarket();
 renderMissions();
 renderRewards();
+renderResearch();
 }
 const GAMEPASSES=[
 {id:"vip",name:"VIP",icon:"👑",price:250,description:"Double définitivement tes revenus.",boost:2},
@@ -461,6 +487,8 @@ const marketSellAll=e.target.closest("[data-market-sellall]");if(marketSellAll){
 const marketMax=e.target.closest("[data-market-buymax]");if(marketMax){marketTrade(marketMax.dataset.marketBuymax,"buy",true);return;}
 
 const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===tab));document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.tab));return;}
+const research=e.target.closest("[data-research]");if(research){const r=RESEARCH.find(x=>x.id===research.dataset.research);if(!r)return;const level=Number(save.research[r.id])||0,price=Math.floor(r.base*Math.pow(3,level));if(save.money<price)return;save.money-=price;save.research[r.id]=level+1;addXP(Math.max(100,Math.floor(price/100)));persist();render();toast("Recherche améliorée : "+r.name);return;}
+const buy10=e.target.closest("[data-buy10]");if(buy10){const b=BUILDINGS.find(x=>x.id===buy10.dataset.buy10);if(!b||save.money<b.cost*10)return;save.money-=b.cost*10;save.owned[b.id]=(save.owned[b.id]||0)+10;ensureDaily();save.daily.buildings+=10;addXP(Math.max(50,Math.floor(b.cost/10)));persist();render();toast("10 bâtiments achetés !");return;}
 const buy=e.target.closest("[data-buy]");if(buy){const b=BUILDINGS.find(x=>x.id===buy.dataset.buy);if(!b||save.money<b.cost)return;save.money-=b.cost;save.owned[b.id]=(save.owned[b.id]||0)+1;ensureDaily();save.daily.buildings++;addXP(Math.max(5,Math.floor(b.cost/100)));persist();render();return;}
 const boxButton=e.target.closest("[data-box]");if(boxButton){openBox(boxButton.dataset.box);return;}
 const passButton=e.target.closest("[data-pass]");if(passButton){const p=GAMEPASSES.find(x=>x.id===passButton.dataset.pass);if(!p||save.tokens<p.price||save.passes[p.id])return;save.tokens-=p.price;save.passes[p.id]=true;persist();render();toast(p.name+" activé définitivement !");return;}
