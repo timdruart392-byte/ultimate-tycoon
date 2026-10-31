@@ -17,7 +17,7 @@ button:disabled{opacity:.38;cursor:not-allowed;transform:none}
 header{text-align:center;padding:22px 8px 18px}
 h1{font-size:clamp(30px,6vw,52px);margin:0;font-weight:950;letter-spacing:-1.5px}
 .subtitle{color:var(--muted);margin:8px 0 0}
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:18px 0}
 .stat,.panel,.building,.loot{background:linear-gradient(145deg,var(--panel),#171727);border:1px solid var(--line);border-radius:17px;padding:16px}
 .stat small{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
 .stat strong{font-size:clamp(17px,3vw,25px);overflow-wrap:anywhere}
@@ -59,6 +59,7 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <div class="stat"><small>📈 REVENU / SECONDE</small><strong id="income">0</strong></div>
   <div class="stat"><small>⭐ XP</small><strong id="xp">0</strong></div>
   <div class="stat"><small>👑 PRESTIGE</small><strong id="prestige">0</strong></div>
+  <div class="stat"><small>🪙 JETONS</small><strong id="tokens">0</strong></div>
 </section>
 <div class="panel">
   <div class="section-title"><h2 id="rankName">🌱 Débutant</h2><span class="muted" id="rankProgress">0 XP</span></div>
@@ -72,6 +73,7 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   <button data-tab="prestigePage">👑 Prestige</button>
   <button data-tab="collection">🏆 Collection</button>
   <button data-tab="leaderboard">🌍 Leaderboard</button>
+  <button data-tab="tokenShop">🪙 Boutique</button>
 </nav>
 <main>
 <section class="page active" id="business">
@@ -133,6 +135,13 @@ footer{text-align:center;color:#77778f;font-size:12px;margin-top:30px}
   </div>
   <div class="notice">Ce classement est enregistré uniquement dans le navigateur de cet appareil. Pour un classement mondial partagé entre tous les joueurs, il faudra connecter une base de données en ligne.</div>
 </section>
+<section class="page" id="tokenShop">
+<div class="section-title"><h2>🪙 Boutique aux jetons</h2><span class="muted">1 jeton chaque minute</span></div>
+<div class="notice">Tu gagnes automatiquement 1 jeton toutes les 60 secondes, même lorsque tu es absent. Les gamepasses s'achètent avec les jetons du jeu : aucun achat réel.</div>
+<div class="section-title"><h2>🎮 Gamepasses permanents</h2></div><div class="grid" id="passList"></div>
+<div class="section-title"><h2>🛍️ Objets spéciaux</h2></div><div class="grid" id="tokenItemList"></div>
+<div class="section-title"><h2>🎟️ Codes cadeaux</h2></div><div class="panel"><p class="muted">Chaque code ne peut être utilisé qu'une fois.</p>
+<div class="actions"><input id="giftCode" maxlength="30" placeholder="Entre ton code ici" style="flex:1;min-width:150px;padding:10px;border-radius:9px;background:#11111d;color:white;border:1px solid #555"><button id="redeemCode">Valider le code</button></div><p class="muted" id="codeMessage">Essaie le code HALLOWEEN 🎃</p></div></section>
 </main>
 <footer>ULTIMATE TYCOON · Sauvegarde automatique sur cet appareil<br><button class="secondary" id="adminOpen" style="margin-top:12px">🛠️ Panel admin</button></footer>
 <div id="adminPanel" class="panel" style="display:none;margin-top:18px">
@@ -217,12 +226,13 @@ const BOXES=[
 {id:"legendary",name:"Lootbox légendaire",price:5,currency:"ascension",icon:"👑",odds:[["Épique",30,100000],["Légendaire",50,1000000],["Cosmique",20,10000000]]},
 {id:"cosmic",name:"Lootbox cosmique",price:3,currency:"transcension",icon:"🌌",odds:[["Légendaire",40,5000000],["Cosmique",60,50000000]]}
 ];
-const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1};
+const DEFAULT={money:100,prestige:0,ascension:0,transcension:0,upgrades:0,xp:0,totalEarned:0,owned:{},exclusive:[],lastSeen:Date.now(),pity:0,lastLoot:null,adminBoost:1,tokens:0,lastTokenAt:Date.now(),redeemedCodes:[],passes:{},tokenBoostUntil:0};
 let save=load();
 function load(){try{const v=JSON.parse(localStorage.getItem("ultimate-tycoon-save")||"null");return Object.assign({},DEFAULT,v||{},{owned:Object.assign({},DEFAULT.owned,v&&v.owned||{}),exclusive:v&&Array.isArray(v.exclusive)?v.exclusive:[]});}catch(e){return Object.assign({},DEFAULT);}}
 function persist(){save.lastSeen=Date.now();try{localStorage.setItem("ultimate-tycoon-save",JSON.stringify(save));}catch(e){}}
 function fmt(n){if(!Number.isFinite(n))return "∞";if(Math.abs(n)<1000)return Math.floor(n).toLocaleString("fr-FR");const units=["K","M","B","T","Qa","Qi","Sx","Sp","Oc","No"];let x=Math.abs(n),i=-1;while(x>=1000&&i<units.length-1){x/=1000;i++;}return (n<0?"-":"")+x.toFixed(2)+units[i];}
-function multiplier(){return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1);}
+function multiplier(){const passBoost=save.passes&&save.passes.megaVIP?5:save.passes&&save.passes.vip?2:1;const timedBoost=save.tokenBoostUntil>Date.now()?2:1;return (1+save.prestige*.25)*(1+save.ascension*2)*(1+save.transcension*10)*(1+save.upgrades*.5)*(Number(save.adminBoost)||1)*passBoost*timedBoost;}
+function accrueTokens(){const now=Date.now(),last=Number(save.lastTokenAt)||now,gained=Math.floor(Math.max(0,now-last)/60000);if(gained>0){save.tokens=(Number(save.tokens)||0)+gained;save.lastTokenAt=last+gained*60000;persist();}document.getElementById("tokens").textContent=fmt(save.tokens||0);}
 function income(){let n=0;BUILDINGS.forEach(b=>n+=(save.owned[b.id]||0)*b.income);save.exclusive.forEach(b=>n+=Number(b.income)||0);return n*multiplier();}
 function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display="none",2600);}
 function addXP(n){save.xp+=Math.max(0,Math.floor(n));}
@@ -242,6 +252,7 @@ document.getElementById("money").textContent=fmt(save.money)+" $";
 document.getElementById("income").textContent=fmt(income())+" $";
 document.getElementById("xp").textContent=fmt(save.xp);
 document.getElementById("prestige").textContent=save.prestige;
+accrueTokens();
 const ri=currentRankIndex(),rank=rankAt(ri),next=rankAt(ri+1);
 document.getElementById("rankName").textContent=rank.icon+" "+rank.name;
 document.getElementById("rankProgress").textContent=fmt(save.xp)+" XP";
@@ -262,6 +273,22 @@ document.getElementById("collectionList").innerHTML=save.exclusive.length?save.e
 document.getElementById("doPrestige").disabled=save.money<1000000;
 document.getElementById("doAscension").disabled=save.prestige<10;
 document.getElementById("doTranscension").disabled=save.ascension<5;
+renderTokenShop();
+}
+const GAMEPASSES=[
+{id:"vip",name:"VIP",icon:"👑",price:250,description:"Double définitivement tous tes revenus."},
+{id:"megaVIP",name:"Mega VIP",icon:"💎",price:1000,description:"Multiplie définitivement tes revenus par 5."}
+];
+const TOKEN_ITEMS=[
+{id:"boost",name:"Boost x2 · 10 minutes",icon:"⚡",price:25,description:"Double tes revenus pendant 10 minutes."},
+{id:"cash",name:"Coffre de 10 000 $",icon:"💰",price:10,description:"Ajoute 10 000 $ à ton argent."},
+{id:"xp",name:"Pack de 1 000 XP",icon:"⭐",price:15,description:"Ajoute 1 000 XP à ta progression."}
+];
+const GIFT_CODES={HALLOWEEN:10000,BIENVENUE:100,TYCOON:500,UPDATE:1000};
+function renderTokenShop(){
+ const passes=document.getElementById("passList");if(!passes)return;
+ passes.innerHTML=GAMEPASSES.map(p=>{const owned=!!(save.passes&&save.passes[p.id]);return '<article class="building"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p>Prix : '+fmt(p.price)+' jetons</p></div><button data-pass="'+p.id+'" '+(owned||save.tokens<p.price?'disabled':'')+'>'+(owned?'Possédé':'Acheter')+'</button></article>';}).join("");
+ document.getElementById("tokenItemList").innerHTML=TOKEN_ITEMS.map(p=>'<article class="building"><div class="emoji">'+p.icon+'</div><div class="details"><h3>'+p.name+'</h3><p>'+p.description+'</p><p>Prix : '+p.price+' jetons</p></div><button data-token-item="'+p.id+'" '+(save.tokens<p.price?'disabled':'')+'>Acheter</button></article>').join("");
 }
 function renderLeaderboard(){
  let rows=[];try{rows=JSON.parse(localStorage.getItem("ultimate-tycoon-leaderboard")||"[]");}catch(e){}
@@ -274,6 +301,14 @@ function renderLeaderboard(){
  const rank=rows.findIndex(r=>r.name===name);
  document.getElementById("myRank").textContent=rank>=0?"Ton classement enregistré : #"+(rank+1):"Aucun score enregistré.";
 }
+document.getElementById("redeemCode").addEventListener("click",function(){
+ const code=document.getElementById("giftCode").value.trim().toUpperCase();
+ if(!code){document.getElementById("codeMessage").textContent="Entre un code.";return;}
+ if((save.redeemedCodes||[]).includes(code)){document.getElementById("codeMessage").textContent="Ce code a déjà été utilisé.";return;}
+ if(!Object.prototype.hasOwnProperty.call(GIFT_CODES,code)){document.getElementById("codeMessage").textContent="Code invalide.";return;}
+ const reward=GIFT_CODES[code];save.tokens=(Number(save.tokens)||0)+reward;save.redeemedCodes.push(code);persist();render();
+ document.getElementById("giftCode").value="";document.getElementById("codeMessage").textContent="Code accepté ! +"+fmt(reward)+" jetons 🎉";toast("+"+fmt(reward)+" jetons !");
+});
 document.getElementById("saveScore").addEventListener("click",function(){
  const name=document.getElementById("playerName").value.trim().slice(0,20);
  if(!name){toast("Entre un pseudo avant d'enregistrer.");return;}
@@ -290,6 +325,8 @@ document.addEventListener("click",function(e){
 const tab=e.target.closest("[data-tab]");if(tab){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===tab));document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.tab));return;}
 const buy=e.target.closest("[data-buy]");if(buy){const b=BUILDINGS.find(x=>x.id===buy.dataset.buy);if(!b||save.money<b.cost)return;save.money-=b.cost;save.owned[b.id]=(save.owned[b.id]||0)+1;addXP(Math.max(5,Math.floor(b.cost/100)));persist();render();return;}
 const boxButton=e.target.closest("[data-box]");if(boxButton){openBox(boxButton.dataset.box);return;}
+const passButton=e.target.closest("[data-pass]");if(passButton){const p=GAMEPASSES.find(x=>x.id===passButton.dataset.pass);if(!p||save.tokens<p.price||save.passes[p.id])return;save.tokens-=p.price;if(p.id==="megaVIP")save.passes.vip=false;save.passes[p.id]=true;persist();render();toast(p.name+" activé définitivement !");return;}
+const itemButton=e.target.closest("[data-token-item]");if(itemButton){const p=TOKEN_ITEMS.find(x=>x.id===itemButton.dataset.tokenItem);if(!p||save.tokens<p.price)return;save.tokens-=p.price;if(p.id==="boost")save.tokenBoostUntil=Math.max(Date.now(),Number(save.tokenBoostUntil)||0)+600000;if(p.id==="cash")save.money+=10000;if(p.id==="xp")addXP(1000);persist();render();toast(p.name+" acheté !");return;}
 });
 document.getElementById("buyUpgrade").addEventListener("click",function(){const p=Math.floor(5000*Math.pow(4,save.upgrades));if(save.money<p)return;save.money-=p;save.upgrades++;addXP(100);persist();render();toast("Amélioration achetée !");});
 function openBox(id){const b=BOXES.find(x=>x.id===id);if(!b||save[b.currency]<b.price)return;save[b.currency]-=b.price;let rarity;if(save.pity>=9&&b.odds.some(x=>x[0]==="Légendaire"||x[0]==="Cosmique")){rarity=b.odds.some(x=>x[0]==="Cosmique")?"Cosmique":"Légendaire";}else{let roll=Math.random()*100,total=0;rarity=b.odds[0][0];for(const o of b.odds){total+=o[1];if(roll<total){rarity=o[0];break;}}}const prize=b.odds.find(x=>x[0]===rarity)||b.odds[0];const names=["Tour infinie","Réacteur quantique","Palais céleste","Mine dimensionnelle","Noyau galactique"];const item={name:rarity+" "+names[Math.floor(Math.random()*names.length)],rarity:rarity,income:prize[2]};save.exclusive.push(item);save.lastLoot=item;save.pity=(rarity==="Légendaire"||rarity==="Cosmique")?0:save.pity+1;addXP(250);persist();render();toast("Tu as obtenu : "+item.name+" !");}
@@ -312,8 +349,8 @@ document.getElementById("adminUnlock").addEventListener("click",()=>{BUILDINGS.f
 document.getElementById("adminGift").addEventListener("click",()=>{const item={name:"Noyau admin cosmique",rarity:"Cosmique",income:100000000};save.exclusive.push(item);save.lastLoot=item;persist();render();toast("Objet cosmique ajouté à la collection !");});
 document.getElementById("adminReset").addEventListener("click",()=>{if(!confirm("Effacer définitivement la sauvegarde de cette partie sur cet appareil ?"))return;save=Object.assign({},DEFAULT,{owned:{},exclusive:[]});persist();render();toast("Partie réinitialisée.");});
 const now=Date.now(),elapsed=Math.min(86400,Math.max(0,(now-(save.lastSeen||now))/1000));if(elapsed>5&&income()>0){const bonus=income()*elapsed;save.money+=bonus;save.totalEarned+=bonus;addXP(bonus/100);toast("Bon retour ! +"+fmt(bonus)+" $ gagnés hors ligne.");}
-render();renderLeaderboard();persist();
-setInterval(function(){const gain=income();save.money+=gain;save.totalEarned+=gain;addXP(gain/100);render();persist();},1000);
+render();renderLeaderboard();accrueTokens();persist();
+setInterval(function(){accrueTokens();const gain=income();save.money+=gain;save.totalEarned+=gain;addXP(gain/100);render();persist();},1000);
 window.addEventListener("beforeunload",persist);
 })();
 </script>
